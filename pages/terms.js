@@ -1,34 +1,38 @@
-export default function Terms() {
+// pages/terms.js
+
+export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-900 px-6 py-12">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="text-3xl font-semibold tracking-tight">Terms of Service</h1>
+    <main className="min-h-screen bg-neutral-100 text-neutral-900">
+      <div className="mx-auto max-w-3xl px-6 py-12">
+        <h1 className="text-2xl font-semibold tracking-tight mb-4">
+          Terms of Service
+        </h1>
 
-        <p className="text-neutral-700 text-sm leading-relaxed">
-          By using BriefingDeck.com (“the service”), you agree that the
-          generated content is provided for informational purposes only and
-          does not constitute financial advice. You are responsible for all
-          interpretations and decisions based on the generated materials.
+        <p className="text-sm text-neutral-700 mb-4">
+          BriefingDeck.com is provided “as is”, without any guarantee of
+          accuracy or fitness for a particular purpose. Generated decks are
+          for informational use only and do not constitute financial advice.
         </p>
 
-        <p className="text-neutral-700 text-sm leading-relaxed">
-          All content is generated automatically using AI model providers.
-          Outputs may contain inaccuracies, and no warranty is provided for
-          the completeness or accuracy of generated content.
+        <p className="text-sm text-neutral-700 mb-4">
+          You are responsible for reviewing and verifying any AI-generated
+          content before sharing it with clients, investors, or other third
+          parties.
         </p>
 
-        <p className="text-neutral-700 text-sm leading-relaxed">
-          You may not redistribute or resell the service without prior written
-          permission. Payments are processed by our payment provider; refunds
-          are handled on a case-by-case basis.
+        <p className="text-sm text-neutral-700 mb-4">
+          AI features are powered by third-party APIs, including DeepSeek and
+          Gamma API. By using this site you agree that your inputs may be sent
+          to those providers for processing.
         </p>
 
-        <p className="text-neutral-500 text-xs pt-4">
-          AI features are powered by DeepSeek and Gamma API.
+        <p className="text-sm text-neutral-700">
+          These terms may be updated from time to time. Continued use of the
+          service means you accept the latest version.
         </p>
 
-        <p className="text-xs text-neutral-400 pt-8">
-          © {new Date().getFullYear()} BriefingDeck.com
+        <p className="text-[11px] text-neutral-500 mt-8">
+          AI generation powered by DeepSeek &amp; Gamma API.
         </p>
       </div>
     </main>
