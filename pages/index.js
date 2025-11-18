@@ -1,18 +1,11 @@
 // pages/index.js
 import { useState } from 'react';
 
-// 备用：保证 URL 是绝对地址（带 https://）
+// 小工具函数：保证 URL 是绝对地址（带 https://）
 function ensureAbsoluteUrl(url) {
   if (!url) return null;
-
-  let cleaned = url.trim();
-
-  // 如果开头没有协议，就补 https://
-  if (!/^https?:\/\//i.test(cleaned)) {
-    cleaned = 'https://' + cleaned.replace(/^\/+/, '');
-  }
-
-  return cleaned;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `https://${url.replace(/^\/+/, '')}`;
 }
 
 export default function Home() {
@@ -34,57 +27,28 @@ export default function Home() {
     }
 
     setLoading(true);
+
     try {
-      const res = await fetch('/api/generate-deck', {
+      // 1) 调用 /api/pay（触发 Creem 支付）
+      const payment = await fetch('/api/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticker: ticker.trim().toUpperCase(),
-        }),
+        body: JSON.stringify({ ticker: ticker.trim().toUpperCase() }),
       });
 
-      const data = await res.json();
-      console.log('[frontend] API response:', data);
+      const paymentData = await payment.json();
+      console.log('[frontend] /api/pay result:', paymentData);
 
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || 'n8n workflow error');
+      if (!payment.ok || !paymentData?.checkout_url) {
+        throw new Error(paymentData.error || 'Payment failed');
       }
 
-      // ====== 关键修改：这里显式清洗 URL ======
-      let rawUrl = data.exportUrl || data.gammaUrl || null;
-      console.log('[frontend] rawUrl from API:', rawUrl);
+      // 2) 跳转到 Creem checkout
+      window.location.href = paymentData.checkout_url;
 
-      if (rawUrl) {
-        let cleaned = rawUrl.trim();
-
-        // 1) 去掉开头多余的 "="
-        cleaned = cleaned.replace(/^=+/, '');
-
-        // 2) 把 "https:/xxx" 修成 "https://xxx"
-        if (cleaned.startsWith('https:/') && !cleaned.startsWith('https://')) {
-          cleaned = cleaned.replace('https:/', 'https://');
-        }
-
-        // 3) 如果还没有协议，补上 https://
-        if (!/^https?:\/\//i.test(cleaned)) {
-          cleaned = 'https://' + cleaned.replace(/^\/+/, '');
-        }
-
-        setDeckUrl(cleaned);
-      } else {
-        setDeckUrl(null);
-      }
-      // ===========================================
-
-      const finalTicker = (data.ticker || ticker).toUpperCase();
-
-      setStatus(
-        `Your briefing deck for ${finalTicker} is ready. Click below to open the PDF.`
-      );
     } catch (err) {
       console.error(err);
       setError(err.message || 'Server error');
-    } finally {
       setLoading(false);
     }
   };
@@ -143,7 +107,7 @@ export default function Home() {
               disabled={loading}
               className="rounded-xl bg-sky-500 px-6 py-3 text-sm font-semibold text-slate-950 shadow-sm hover:bg-sky-400 disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
-              {loading ? 'Generating...' : 'Generate for $0.99'}
+              {loading ? 'Processing...' : 'Generate for $4.99'}
             </button>
           </div>
         </div>
@@ -173,15 +137,12 @@ export default function Home() {
                 >
                   Open PDF Deck
                 </a>
-
-                {/* 调试用：短期可以打开这行，确认 URL */}
-                {/* <p className="text-xs text-slate-500 break-all">{deckUrl}</p> */}
               </div>
             )}
           </div>
         )}
 
-        {/* Footer bullets */}
+        {/* Footer */}
         <div className="mt-10 space-y-1 text-sm text-slate-400">
           <p>Latest public filings included.</p>
           <p>Professional, banker-grade slide design.</p>
