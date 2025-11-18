@@ -222,19 +222,31 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <footer className="relative border-t border-slate-200/60 bg-white/60 backdrop-blur-xl mt-20">
-        <div className="mx-auto flex max-w-6xl flex-col md:flex-row items-center justify-between px-6 py-6 text-sm text-slate-600 gap-4">
-          <span>© {new Date().getFullYear()} BriefingDeck.com — All rights reserved</span>
-          <div className="flex gap-6">
-            <a href="/privacy" className="hover:text-blue-600 transition-colors">
-              Privacy Policy
-            </a>
-            <a href="/terms" className="hover:text-blue-600 transition-colors">
-              Terms of Service
-            </a>
-          </div>
-        </div>
-      </footer>
+     <footer className="relative border-t border-slate-200/60 bg-white/60 backdrop-blur-xl mt-20">
+  <div className="mx-auto flex max-w-6xl flex-col md:flex-row items-center justify-between px-6 py-6 text-sm text-slate-600 gap-4">
+    <div className="flex flex-col gap-1">
+      <span>© {new Date().getFullYear()} BriefingDeck.com — All rights reserved</span>
+      <span className="text-xs text-slate-500">
+        Support:&nbsp;
+        <a
+          href="mailto:support@briefingdeck.com"
+          className="underline hover:text-blue-600"
+        >
+          tianyu.jiang@icloud.com
+        </a>
+      </span>
+    </div>
+
+    <div className="flex gap-6">
+      <a href="/privacy" className="hover:text-blue-600 transition-colors">
+        Privacy Policy
+      </a>
+      <a href="/terms" className="hover:text-blue-600 transition-colors">
+        Terms of Service
+      </a>
+    </div>
+  </div>
+</footer>
 
       <style jsx>{`
         @keyframes blob {
