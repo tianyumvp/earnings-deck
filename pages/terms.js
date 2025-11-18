@@ -1,6 +1,6 @@
 // pages/terms.js
 
-export default function TermsPage() {
+export default function TermsOfService() {
   return (
     <main className="min-h-screen bg-neutral-100 text-neutral-900 flex flex-col">
       <header className="w-full border-b border-neutral-200 bg-neutral-100/80">
@@ -14,30 +14,29 @@ export default function TermsPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-3xl px-6 py-10 md:py-12 flex-1">
+      <section className="mx-auto max-w-3xl px-6 py-12 md:py-16 flex-1">
         <h1 className="text-2xl font-semibold mb-4">Terms of Service</h1>
-        <p className="text-sm text-neutral-700 mb-4">
-          By using BriefingDeck.com, you agree to the following terms:
+        <p className="text-sm text-neutral-600 mb-2">
+          BriefingDeck.com provides automatically generated briefing decks based
+          on publicly available company filings and related information.
         </p>
-        <ul className="list-disc pl-5 space-y-2 text-sm text-neutral-700">
-          <li>
-            BriefingDeck is provided &quot;as is&quot; without warranty of any kind.
-          </li>
-          <li>
-            Decks are generated automatically using third-party AI and content APIs
-            (including DeepSeek &amp; Gamma). They may contain inaccuracies or be incomplete.
-          </li>
-          <li>
-            Nothing on this site constitutes investment, legal, or financial advice.
-            You are solely responsible for any decisions made using the generated output.
-          </li>
-          <li>
-            Payments and subscriptions are handled by Creem.io, and may be subject to
-            their own terms and policies.
-          </li>
-        </ul>
-        <p className="text-sm text-neutral-700 mt-4">
-          If you do not agree with these terms, please do not use the service.
+        <p className="text-sm text-neutral-600 mb-2">
+          The service is intended for informational and internal discussion
+          purposes only. It does not constitute investment advice, an offer, or
+          a recommendation to buy or sell any security.
+        </p>
+        <p className="text-sm text-neutral-600 mb-2">
+          Outputs may contain errors, omissions, or outdated information. You
+          are solely responsible for verifying any data before relying on it for
+          financial decisions.
+        </p>
+        <p className="text-sm text-neutral-600 mb-2">
+          By using this service you agree that BriefingDeck.com and its
+          developer are not liable for any losses or decisions made based on the
+          generated content.
+        </p>
+        <p className="text-sm text-neutral-600 mt-4">
+          This project may change or be discontinued at any time without notice.
         </p>
       </section>
     </main>
