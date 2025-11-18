@@ -1,25 +1,16 @@
 // pages/index.js
 import { useState } from 'react';
 
-// 小工具函数：保证 URL 是绝对地址（带 https://）
-function ensureAbsoluteUrl(url) {
-  if (!url) return null;
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return `https://${url.replace(/^\/+/, '')}`;
-}
-
 export default function Home() {
   const [ticker, setTicker] = useState('');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
-  const [deckUrl, setDeckUrl] = useState(null);
 
   const handleGenerate = async (e) => {
     e.preventDefault();
     setError(null);
     setStatus(null);
-    setDeckUrl(null);
 
     if (!ticker.trim()) {
       setError('Please enter a stock ticker, e.g. AMD');
@@ -27,128 +18,132 @@ export default function Home() {
     }
 
     setLoading(true);
-
     try {
-      // 1) 调用 /api/pay（触发 Creem 支付）
-      const payment = await fetch('/api/pay', {
+      const res = await fetch('/api/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticker: ticker.trim().toUpperCase() }),
       });
 
-      const paymentData = await payment.json();
-      console.log('[frontend] /api/pay result:', paymentData);
+      const data = await res.json().catch(() => ({}));
+      console.log('[frontend] /api/pay response:', data);
 
-      if (!payment.ok || !paymentData?.checkout_url) {
-        throw new Error(paymentData.error || 'Payment failed');
+      if (!res.ok || !data.ok || !data.checkoutUrl) {
+        setError(data.error || 'Payment failed. Please try again.');
+        return;
       }
 
-      // 2) 跳转到 Creem checkout
-      window.location.href = paymentData.checkout_url;
-
+      window.location.href = data.checkoutUrl;
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Server error');
+      setError('Network error. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50">
-      {/* Top nav */}
-      <header className="w-full pt-10">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6">
-          <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-3 py-1 text-xs text-slate-300">
-            <span className="font-medium text-slate-50">AI Earnings Decks</span>
-            <span>•</span>
-            <span>Built for investors</span>
+    <main className="min-h-screen bg-[#f6f5f3] text-neutral-900 flex flex-col">
+      {/* 顶部导航：极简 Notion 风 */}
+      <header className="w-full border-b border-neutral-200 bg-[#f6f5f3]/80 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 rounded-md bg-black" />
+            <span className="text-sm font-medium tracking-tight">
+              BriefingDeck
+            </span>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <section className="mx-auto max-w-5xl px-6 pt-16 pb-24">
-        {/* Hero */}
-        <div className="max-w-3xl space-y-5">
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-50 md:text-5xl">
-            Turn a Ticker into a Deck{' '}
-            <span className="whitespace-nowrap text-sky-400">
-              in 60 Seconds.
-            </span>
-          </h1>
-
-          <p className="text-base leading-relaxed text-slate-300 md:text-lg">
-            Enter any NYSE / NASDAQ ticker and instantly generate a clean,
-            investor-ready briefing deck from the latest public filings.
-          </p>
-        </div>
-
-        {/* Input + button */}
-        <div className="mt-12">
-          <label
-            htmlFor="ticker"
-            className="mb-2 block text-xs font-medium uppercase tracking-wide text-slate-400"
-          >
-            Ticker
-          </label>
-
-          <div className="flex flex-col gap-3 md:flex-row md:items-stretch">
-            <input
-              id="ticker"
-              type="text"
-              placeholder="e.g. AMD"
-              className="w-full rounded-xl bg-slate-900/60 border border-slate-700 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/70 focus:border-sky-500/70"
-              value={ticker}
-              onChange={(e) => setTicker(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={loading}
-              className="rounded-xl bg-sky-500 px-6 py-3 text-sm font-semibold text-slate-950 shadow-sm hover:bg-sky-400 disabled:opacity-60 disabled:cursor-not-allowed transition"
-            >
-              {loading ? 'Processing...' : 'Generate for $4.99'}
-            </button>
-          </div>
-        </div>
-
-        {/* Status / error / link */}
-        {(status || error || deckUrl) && (
-          <div className="mt-10 rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
-            {status && (
-              <p className="text-sm text-sky-300">
-                {status}
+      {/* 主内容区：居中白卡 */}
+      <div className="flex-1">
+        <section className="mx-auto max-w-4xl px-4 sm:px-6 py-10 sm:py-14 md:py-16">
+          <div className="rounded-3xl border border-neutral-200 bg-white shadow-sm px-5 py-7 sm:px-8 sm:py-9 md:px-10 md:py-10">
+            {/* 标题区 */}
+            <div className="space-y-4 mb-8 md:mb-10">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">
+                Briefing Deck Agent
               </p>
-            )}
-
-            {error && (
-              <p className="text-sm text-red-400">
-                {error}
+              <h1 className="text-[28px] leading-tight md:text-[32px] md:leading-snug font-semibold text-neutral-900">
+                Turn a ticker into a briefing deck
+              </h1>
+              <p className="text-sm md:text-[15px] leading-relaxed text-neutral-600 max-w-2xl">
+                Enter any stock ticker to generate a concise, banker-style
+                briefing deck based on the latest publicly filed earnings and
+                investor materials.
               </p>
-            )}
+            </div>
 
-            {deckUrl && (
-              <div className="pt-2 space-y-2">
-                <a
-                  href={deckUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400 transition"
+            {/* 表单区域 */}
+            <form onSubmit={handleGenerate} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="ticker"
+                  className="mb-1 block text-xs font-medium uppercase tracking-[0.16em] text-neutral-500"
                 >
-                  Open PDF Deck
-                </a>
+                  Ticker
+                </label>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <input
+                    id="ticker"
+                    type="text"
+                    placeholder="e.g. AMD"
+                    className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3.5 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900"
+                    value={ticker}
+                    onChange={(e) => setTicker(e.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="inline-flex items-center justify-center rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                  >
+                    {loading ? 'Processing…' : 'Generate for $4.99'}
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Footer */}
-        <div className="mt-10 space-y-1 text-sm text-slate-400">
-          <p>Latest public filings included.</p>
-          <p>Professional, banker-grade slide design.</p>
-          <p>PDF delivered in under 60 seconds.</p>
+              {/* 错误 / 状态 */}
+              {(error || status) && (
+                <div className="mt-1 space-y-1">
+                  {error && (
+                    <p className="text-xs text-red-500">
+                      {error}
+                    </p>
+                  )}
+                  {status && (
+                    <p className="text-xs text-emerald-600">
+                      {status}
+                    </p>
+                  )}
+                </div>
+              )}
+            </form>
+
+            {/* 卖点文案：Notion 式 bullet */}
+            <div className="mt-7 space-y-1.5 text-xs md:text-sm text-neutral-500">
+              <p>• Uses latest publicly filed earnings and investor materials.</p>
+              <p>• Clean, professional layout for investor meetings and IC memos.</p>
+              <p>• Typically ready in about 60 seconds.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* Footer：给支付方看的合规链接 */}
+      <footer className="border-t border-neutral-200 bg-[#f6f5f3]">
+        <div className="mx-auto flex max-w-4xl flex-col sm:flex-row items-center justify-between gap-2 px-6 py-4 text-xs text-neutral-500">
+          <span>© {new Date().getFullYear()} BriefingDeck.com</span>
+          <div>
+            <a href="/privacy" className="mr-4 hover:text-neutral-800">
+              Privacy Policy
+            </a>
+            <a href="/terms" className="hover:text-neutral-800">
+              Terms of Service
+            </a>
+          </div>
         </div>
-      </section>
+      </footer>
     </main>
   );
 }
