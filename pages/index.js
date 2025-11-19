@@ -1,5 +1,12 @@
+// pages/index.js
 import { useEffect, useState } from 'react';
-import { Sparkles, Zap, TrendingUp, ArrowRight, CheckCircle2 } from 'lucide-react';
+import {
+  Sparkles,
+  Zap,
+  TrendingUp,
+  ArrowRight,
+  CheckCircle2,
+} from 'lucide-react';
 
 export default function Home() {
   const [ticker, setTicker] = useState('');
@@ -8,6 +15,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [paidMessage, setPaidMessage] = useState(null);
 
+  // 当 Creem 支付成功跳回 ?paid=1&ticker=XXX 时，给用户一个“支付成功，正在生成”的提示
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
@@ -42,11 +50,13 @@ export default function Home() {
       const data = await res.json().catch(() => ({}));
       console.log('[frontend] /api/pay response:', data);
 
+      // 没拿到 checkoutUrl，就视为支付创建失败
       if (!res.ok || !data.ok || !data.checkoutUrl) {
         setError(data.error || 'Payment failed. Please try again.');
         return;
       }
 
+      // 跳转到 Creem 付款页
       window.location.href = data.checkoutUrl;
     } catch (err) {
       console.error(err);
@@ -58,7 +68,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 text-slate-900">
-      {/* Animated background gradient orbs */}
+      {/* 背景动态色块 */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
         <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-300/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
@@ -80,7 +90,9 @@ export default function Home() {
             </span>
           </div>
           <div className="flex items-center gap-4 text-sm">
-            <span className="text-slate-600 hidden sm:inline">AI-Powered Analysis</span>
+            <span className="text-slate-600 hidden sm:inline">
+              AI-Powered Analysis
+            </span>
           </div>
         </div>
       </header>
@@ -88,14 +100,15 @@ export default function Home() {
       {/* Main Content */}
       <div className="relative flex-1">
         <section className="mx-auto max-w-5xl px-6 py-16 md:py-24">
-          
           {/* Hero Section */}
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200/50 mb-6">
               <Sparkles className="w-4 h-4 text-purple-600" />
-              <span className="text-xs font-medium text-slate-700">Powered by AI</span>
+              <span className="text-xs font-medium text-slate-700">
+                Powered by AI
+              </span>
             </div>
-            
+
             <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
               <span className="bg-gradient-to-r from-slate-900 via-blue-800 to-purple-900 bg-clip-text text-transparent">
                 Turn tickers into
@@ -105,25 +118,26 @@ export default function Home() {
                 investor decks
               </span>
             </h1>
-            
+
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-              AI-powered briefing decks from the latest public filings. 
+              AI-powered briefing decks from the latest public filings.
               Professional, fast, and ready for IC meetings.
             </p>
           </div>
 
           {/* Main Card */}
           <div className="relative">
-            {/* Glow effect behind card */}
+            {/* Glow behind card */}
             <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 blur-3xl -z-10"></div>
-            
+
             <div className="rounded-3xl border border-slate-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-slate-200/50 px-8 py-10 md:px-12 md:py-12">
-              
-              {/* Success Message */}
+              {/* Paid message after returning from Creem */}
               {paidMessage && (
                 <div className="mb-6 rounded-2xl border border-emerald-200/60 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-3 flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                  <span className="text-sm text-emerald-800 font-medium">{paidMessage}</span>
+                  <span className="text-sm text-emerald-800 font-medium">
+                    {paidMessage}
+                  </span>
                 </div>
               )}
 
@@ -194,26 +208,57 @@ export default function Home() {
               {/* Features Grid */}
               <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  { icon: '📊', title: 'Latest Filings', desc: 'Real earnings & investor data' },
-                  { icon: '✨', title: 'Pro Design', desc: 'Clean, meeting-ready layouts' },
-                  { icon: '⚡', title: '~60 Seconds', desc: 'Lightning-fast generation' }
+                  {
+                    icon: '📊',
+                    title: 'Latest Filings',
+                    desc: 'Real earnings & investor data',
+                  },
+                  {
+                    icon: '✨',
+                    title: 'Pro Design',
+                    desc: 'Clean, meeting-ready layouts',
+                  },
+                  {
+                    icon: '⚡',
+                    title: '~60 Seconds',
+                    desc: 'Lightning-fast generation',
+                  },
                 ].map((feature, i) => (
                   <div
                     key={i}
                     className="rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50/50 border border-slate-200/60 p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
                   >
                     <div className="text-3xl mb-2">{feature.icon}</div>
-                    <h3 className="font-semibold text-slate-900 mb-1">{feature.title}</h3>
+                    <h3 className="font-semibold text-slate-900 mb-1">
+                      {feature.title}
+                    </h3>
                     <p className="text-sm text-slate-600">{feature.desc}</p>
                   </div>
                 ))}
               </div>
 
+              {/* ✅ Sample Deck Link */}
+              <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-3">
+                <p className="text-xs text-slate-500">
+                  Want to see what the output looks like?
+                </p>
+                <a
+                  href="/samples/AMD-Q1-2024-Investor-Briefing.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
+                >
+                  View sample deck
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              </div>
+
               {/* Disclaimer */}
               <div className="mt-8 pt-6 border-t border-slate-200">
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Powered by DeepSeek & Gamma API. BriefingDeck does not provide investment advice; 
-                  all content is for informational purposes only. Always conduct your own research.
+                  Powered by DeepSeek & Gamma API. BriefingDeck does not provide
+                  investment advice; all content is for informational purposes
+                  only. Always conduct your own research.
                 </p>
               </div>
             </div>
@@ -222,37 +267,35 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-     <footer className="relative border-t border-slate-200/60 bg-white/60 backdrop-blur-xl mt-20">
-  <div className="mx-auto flex max-w-6xl flex-col md:flex-row items-center justify-between px-6 py-6 text-sm text-slate-600 gap-4">
-    <div className="flex flex-col gap-1">
-      <span>© {new Date().getFullYear()} BriefingDeck.com — All rights reserved</span>
-      <span className="text-xs text-slate-500">
-        Support:&nbsp;
-        <a
-          href="mailto:support@briefingdeck.com"
-          className="underline hover:text-blue-600"
-        >
-          tianyu.jiang@icloud.com
-        </a>
-      </span>
-    </div>
-
-    <div className="flex gap-6">
-      <a href="/privacy" className="hover:text-blue-600 transition-colors">
-        Privacy Policy
-      </a>
-      <a href="/terms" className="hover:text-blue-600 transition-colors">
-        Terms of Service
-      </a>
-    </div>
-  </div>
-</footer>
+      <footer className="relative border-t border-slate-200/60 bg-white/60 backdrop-blur-xl mt-20">
+        <div className="mx-auto flex max-w-6xl flex-col md:flex-row items-center justify-between px-6 py-6 text-sm text-slate-600 gap-4">
+          <span>
+            © {new Date().getFullYear()} BriefingDeck.com — All rights
+            reserved
+          </span>
+          <div className="flex gap-6">
+            <a href="/privacy" className="hover:text-blue-600 transition-colors">
+              Privacy Policy
+            </a>
+            <a href="/terms" className="hover:text-blue-600 transition-colors">
+              Terms of Service
+            </a>
+          </div>
+        </div>
+      </footer>
 
       <style jsx>{`
         @keyframes blob {
-          0%, 100% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
+          0%,
+          100% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
         }
         .animate-blob {
           animation: blob 7s infinite;
