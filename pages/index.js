@@ -188,6 +188,11 @@ export default function Home() {
               AI-powered briefing decks from the latest public filings.
               Professional, fast, and ready for IC meetings.
             </p>
+
+            <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 text-xs font-medium shadow-sm">
+              <span className="uppercase tracking-wide">Beta</span>
+              <span>We are currently in beta.</span>
+            </div>
           </div>
 
           {/* Main Card */}
