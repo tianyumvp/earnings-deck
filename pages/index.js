@@ -243,7 +243,7 @@ export default function Home() {
                   Want to see what the output looks like?
                 </p>
                 <a
-                  href="/samples/AMD-Q1-2024-Investor-Briefing.pdf"
+                  href="/samples/Zoom-Video-Communications-ZM-Earnings-Analysis.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
