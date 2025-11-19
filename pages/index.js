@@ -10,53 +10,118 @@ import {
 
 export default function Home() {
   const [ticker, setTicker] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(false);      // 调用 /api/pay 的加载
+  const [status, setStatus] = useState(null);         // 生成状态文案
   const [error, setError] = useState(null);
   const [paidMessage, setPaidMessage] = useState(null);
+  const [generating, setGenerating] = useState(false); // 调用 /api/generate-deck 的加载
+  const [deckUrl, setDeckUrl] = useState(null);
+  const [generatingDots, setGeneratingDots] = useState('');
 
-  // 当 Creem 支付成功跳回 ?paid=1&ticker=XXX 时，给用户一个“支付成功，正在生成”的提示
+  // ========= 支付成功后自动生成 deck =========
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
     const url = new URL(window.location.href);
     const paid = url.searchParams.get('paid');
     const t = url.searchParams.get('ticker');
+
     if (paid === '1' && t) {
+      const upper = t.trim().toUpperCase();
+      setTicker(upper);
       setPaidMessage(
-        `Payment received for ${t}. Your briefing deck is being generated.`
+        `Payment received for ${upper}. Your briefing deck is being generated.`
       );
+      // 自动触发生成
+      autoGenerateAfterPayment(upper);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 动态生成提示：显示 . .. ... 循环
+  useEffect(() => {
+    if (!generating) {
+      setGeneratingDots('');
+      return;
+    }
+
+    const frames = ['.', '..', '...'];
+    let idx = 0;
+    setGeneratingDots(frames[idx]);
+    idx = (idx + 1) % frames.length;
+
+    const timer = setInterval(() => {
+      setGeneratingDots(frames[idx]);
+      idx = (idx + 1) % frames.length;
+    }, 500);
+
+    return () => clearInterval(timer);
+  }, [generating]);
+
+  // 支付成功后调用的自动生成函数
+  const autoGenerateAfterPayment = async (paidTicker) => {
+    setError(null);
+    setStatus(null);
+    setDeckUrl(null);
+    setGenerating(true);
+
+    try {
+      const res = await fetch('/api/generate-deck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: paidTicker }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      console.log('[frontend] /api/generate-deck response:', data);
+
+      if (!res.ok || !data.ok || !data.deckUrl) {
+        setError(data.error || 'Deck generation failed. Please contact support.');
+        return;
+      }
+
+      setStatus(`Your briefing deck for ${paidTicker} is ready.`);
+      setDeckUrl(data.deckUrl);
+    } catch (err) {
+      console.error(err);
+      setError('Network error while generating the deck. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // ========= 点击按钮：创建 BagelPay 支付 =========
   const handleGenerate = async (e) => {
     e.preventDefault();
     setError(null);
     setStatus(null);
     setPaidMessage(null);
+    setDeckUrl(null);
 
     if (!ticker.trim()) {
       setError('Please enter a stock ticker, e.g. AMD');
       return;
     }
 
+    const upper = ticker.trim().toUpperCase();
     setLoading(true);
+
     try {
       const res = await fetch('/api/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: ticker.trim().toUpperCase() }),
+        body: JSON.stringify({ ticker: upper }),
       });
 
       const data = await res.json().catch(() => ({}));
       console.log('[frontend] /api/pay response:', data);
 
-      // 没拿到 checkoutUrl，就视为支付创建失败
       if (!res.ok || !data.ok || !data.checkoutUrl) {
         setError(data.error || 'Payment failed. Please try again.');
         return;
       }
 
-      // 跳转到 Creem 付款页
+      // 跳转到 BagelPay 付款页面
       window.location.href = data.checkoutUrl;
     } catch (err) {
       console.error(err);
@@ -127,21 +192,25 @@ export default function Home() {
 
           {/* Main Card */}
           <div className="relative">
-            {/* Glow behind card */}
             <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 blur-3xl -z-10"></div>
 
             <div className="rounded-3xl border border-slate-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-slate-200/50 px-8 py-10 md:px-12 md:py-12">
-              {/* Paid message after returning from Creem */}
+              {/* 支付成功提示 + 生成中提示 */}
               {paidMessage && (
-                <div className="mb-6 rounded-2xl border border-emerald-200/60 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-3 flex items-start gap-3">
+                <div className="mb-4 rounded-2xl border border-emerald-200/60 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-3 flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                   <span className="text-sm text-emerald-800 font-medium">
                     {paidMessage}
+                    {generating && (
+                      <span className="inline-block w-8" aria-live="polite">
+                        {generatingDots}
+                      </span>
+                    )}
                   </span>
                 </div>
               )}
 
-              {/* Input Section */}
+              {/* 输入区 */}
               <div className="space-y-6">
                 <div>
                   <label
@@ -188,9 +257,9 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Error / Status Messages */}
-                {(error || status) && (
-                  <div className="space-y-2">
+                {/* 错误 / 状态 / deck 链接 */}
+                {(error || status || deckUrl) && (
+                  <div className="space-y-3">
                     {error && (
                       <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-medium">
                         {error}
@@ -201,11 +270,24 @@ export default function Home() {
                         {status}
                       </div>
                     )}
+                    {deckUrl && (
+                      <div>
+                        <a
+                          href={deckUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                        >
+                          Open PDF deck
+                          <ArrowRight className="w-4 h-4" />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Features Grid */}
+              {/* Features */}
               <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
                   {
@@ -237,13 +319,13 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* ✅ Sample Deck Link */}
+              {/* Sample Deck */}
               <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-3">
                 <p className="text-xs text-slate-500">
                   Want to see what the output looks like?
                 </p>
                 <a
-                  href="/samples/Zoom-Video-Communications-ZM-Earnings-Analysis.pdf"
+                  href="/samples/AMD-Q1-2024-Investor-Briefing.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
@@ -268,29 +350,27 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="relative border-t border-slate-200/60 bg-white/60 backdrop-blur-xl mt-20">
-  <div className="mx-auto flex max-w-6xl flex-col md:flex-row items-center justify-between px-6 py-6 text-sm text-slate-600 gap-4">
-    <span>
-      © {new Date().getFullYear()} BriefingDeck.com — All rights reserved
-    </span>
+        <div className="mx-auto flex max-w-6xl flex-col md:flex-row items-center justify-between px-6 py-6 text-sm text-slate-600 gap-4">
+          <span>
+            © {new Date().getFullYear()} BriefingDeck.com — All rights reserved
+          </span>
 
-    <div className="flex flex-wrap items-center gap-4 md:gap-6">
-      {/* 客服邮箱：Creem 审核需要能看到一个 reachable email */}
-      <a
-        href="mailto:tianyu.jiang@icloud.com"
-        className="hover:text-blue-600 transition-colors"
-      >
-        Support: tianyu.jiang@icloud.com
-      </a>
-
-      <a href="/privacy" className="hover:text-blue-600 transition-colors">
-        Privacy Policy
-      </a>
-      <a href="/terms" className="hover:text-blue-600 transition-colors">
-        Terms of Service
-      </a>
-    </div>
-  </div>
-</footer>
+          <div className="flex flex-wrap items-center gap-4 md:gap-6">
+            <a
+              href="mailto:tianyu.jiang@icloud.com"
+              className="hover:text-blue-600 transition-colors"
+            >
+              Support: tianyu.jiang@icloud.com
+            </a>
+            <a href="/privacy" className="hover:text-blue-600 transition-colors">
+              Privacy Policy
+            </a>
+            <a href="/terms" className="hover:text-blue-600 transition-colors">
+              Terms of Service
+            </a>
+          </div>
+        </div>
+      </footer>
 
       <style jsx>{`
         @keyframes blob {

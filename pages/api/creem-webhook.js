@@ -24,10 +24,19 @@ export default async function handler(req, res) {
   try {
     // 不同版本的 Creem 事件字段可能叫 event / type / event_type
     const eventType =
-      payload.event || payload.type || payload.event_type || 'unknown';
+      payload.event ||
+      payload.eventType ||
+      payload.type ||
+      payload.event_type ||
+      'unknown';
 
-    // data 里通常会有 charge / payment / checkout 等对象
-    const data = payload.data || payload.charge || payload.payment || payload;
+    // Creem 新版 payload 把对象放在 object 字段
+    const data =
+      payload.data ||
+      payload.object ||
+      payload.charge ||
+      payload.payment ||
+      payload;
 
     const status =
       data?.status ||
