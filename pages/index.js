@@ -268,21 +268,29 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="relative border-t border-slate-200/60 bg-white/60 backdrop-blur-xl mt-20">
-        <div className="mx-auto flex max-w-6xl flex-col md:flex-row items-center justify-between px-6 py-6 text-sm text-slate-600 gap-4">
-          <span>
-            © {new Date().getFullYear()} BriefingDeck.com — All rights
-            reserved
-          </span>
-          <div className="flex gap-6">
-            <a href="/privacy" className="hover:text-blue-600 transition-colors">
-              Privacy Policy
-            </a>
-            <a href="/terms" className="hover:text-blue-600 transition-colors">
-              Terms of Service
-            </a>
-          </div>
-        </div>
-      </footer>
+  <div className="mx-auto flex max-w-6xl flex-col md:flex-row items-center justify-between px-6 py-6 text-sm text-slate-600 gap-4">
+    <span>
+      © {new Date().getFullYear()} BriefingDeck.com — All rights reserved
+    </span>
+
+    <div className="flex flex-wrap items-center gap-4 md:gap-6">
+      {/* 客服邮箱：Creem 审核需要能看到一个 reachable email */}
+      <a
+        href="mailto:tianyu.jiang@icloud.com"
+        className="hover:text-blue-600 transition-colors"
+      >
+        Support: tianyu.jiang@icloud.com
+      </a>
+
+      <a href="/privacy" className="hover:text-blue-600 transition-colors">
+        Privacy Policy
+      </a>
+      <a href="/terms" className="hover:text-blue-600 transition-colors">
+        Terms of Service
+      </a>
+    </div>
+  </div>
+</footer>
 
       <style jsx>{`
         @keyframes blob {
