@@ -69,12 +69,16 @@ export default async function handler(req, res) {
     }
 
     // 7. Return clean data to the frontend
+    const deckUrl =
+      data.deckUrl || data.exportUrl || data.gammaUrl || data.pdfUrl || null;
+
     const payload = {
       ok: true,
       ticker: data.ticker || ticker,
       status: data.status,
       exportUrl: data.exportUrl || null,
       gammaUrl: data.gammaUrl || null,
+      deckUrl,
       // raw: data, // 如果想调试完整返回，可以临时打开
     };
 
