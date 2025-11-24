@@ -1,6 +1,15 @@
 // pages/api/pay.js
 
-// 用 env 来切换支付渠道：bagel / creem
+// ==================== 环境变量检查（启动时打印） ====================
+console.log('=== /api/pay.js 环境变量 ===');
+console.log('PAYMENT_PROVIDER:', process.env.PAYMENT_PROVIDER);
+console.log('CREEM_IS_TEST:', process.env.CREEM_IS_TEST);
+console.log('CREEM_API_KEY:', process.env.CREEM_API_KEY ? '已设置' : '未设置');
+console.log('CREEM_PRODUCT_ID:', process.env.CREEM_PRODUCT_ID ? '已设置' : '未设置');
+console.log('CREEM_API_BASE:', process.env.CREEM_API_BASE || '默认(sandbox.creem.io)');
+console.log('BAGELPAY_CHECKOUT_URL:', process.env.BAGELPAY_CHECKOUT_URL ? '已设置' : '未设置');
+console.log('=============================');
+
 const PAYMENT_PROVIDER = process.env.PAYMENT_PROVIDER || 'bagel';
 
 export default async function handler(req, res) {
@@ -8,64 +17,73 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const { ticker } = req.body || {};
-  if (!ticker || typeof ticker !== 'string') {
-    return res
-      .status(400)
-      .json({ ok: false, error: 'Ticker is required (e.g. AMD)' });
+  const { ticker, email } = req.body || {};
+  
+  if (!ticker || typeof ticker !== 'string' || ticker.trim().length === 0) {
+    return res.status(400).json({ ok: false, error: 'Ticker is required (e.g. AMD)' });
   }
 
   const normalizedTicker = ticker.trim().toUpperCase();
   const origin =
     req.headers.origin ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    'http://localhost:3000';
+    'https://briefingdeck.com';
+
+  // ✅ 生成唯一订单号
+  const orderId = `deck_${normalizedTicker}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  console.log(`[API /pay] 订单: ${orderId}, Ticker: ${normalizedTicker}, Email: ${email || 'N/A'}`);
 
   try {
-    // —— 1. Creem 路径（保留将来用）——
     if (PAYMENT_PROVIDER === 'creem') {
-      const result = await createCreemCheckout(normalizedTicker, origin);
+      console.log('[API /pay] 使用 Creem');
+      const result = await createCreemCheckout(normalizedTicker, origin, orderId);
+      
       if (!result.ok) {
-        return res
-          .status(result.statusCode || 500)
-          .json({ ok: false, error: result.error || 'Creem payment failed' });
+        return res.status(result.statusCode || 500).json({
+          ok: false,
+          error: result.error || 'Creem payment failed'
+        });
       }
+      
       return res.status(200).json({
         ok: true,
         provider: 'creem',
         checkoutUrl: result.checkoutUrl,
+        orderId,
       });
     }
 
-    // —— 2. 默认：BagelPay Hosted Checkout（不调 API，只跳链接）——
-    const result = await createBagelHostedCheckout(normalizedTicker);
+    console.log('[API /pay] 使用 BagelPay');
+    const result = await createBagelHostedCheckout(normalizedTicker, orderId);
+    
     if (!result.ok) {
-      return res
-        .status(result.statusCode || 500)
-        .json({ ok: false, error: result.error || 'BagelPay payment failed' });
+      return res.status(result.statusCode || 500).json({
+        ok: false,
+        error: result.error || 'BagelPay payment failed'
+      });
     }
 
     return res.status(200).json({
       ok: true,
       provider: 'bagelpay',
       checkoutUrl: result.checkoutUrl,
+      orderId,
     });
+
   } catch (err) {
-    console.error('[API /pay] Unexpected error:', err);
+    console.error('[API /pay] 异常:', err);
     return res.status(500).json({ ok: false, error: 'Server error' });
   }
 }
 
 /**
- * BagelPay - Hosted Checkout 模式
- * 使用你在 Bagel 后台已经生成好的支付链接（BAGELPAY_CHECKOUT_URL）
- * ✅ 不再调用任何 Bagel API，不会再出现 405 / JSON 解析错误。
+ * BagelPay - Hosted Checkout
  */
-async function createBagelHostedCheckout(ticker) {
+async function createBagelHostedCheckout(ticker, orderId) {
   const baseUrl = process.env.BAGELPAY_CHECKOUT_URL;
 
   if (!baseUrl) {
-    console.error('[BagelPay] Missing BAGELPAY_CHECKOUT_URL');
+    console.error('[BagelPay] 错误: BAGELPAY_CHECKOUT_URL 未配置');
     return {
       ok: false,
       statusCode: 500,
@@ -73,31 +91,38 @@ async function createBagelHostedCheckout(ticker) {
     };
   }
 
-  // 可选：把 ticker 当作 query 传过去，方便你在 Bagel 或回调里看到
-  const checkoutUrl = baseUrl.includes('?')
-    ? `${baseUrl}&ticker=${encodeURIComponent(ticker)}`
-    : `${baseUrl}?ticker=${encodeURIComponent(ticker)}`;
+  const params = new URLSearchParams({ ticker, orderId });
+  const checkoutUrl = baseUrl.includes('?') 
+    ? `${baseUrl}&${params.toString()}`
+    : `${baseUrl}?${params.toString()}`;
 
-  console.log('[BagelPay] Hosted checkout URL:', checkoutUrl);
-
-  // ❗注意：这里不再有 fetch，直接返回 URL
-  return {
-    ok: true,
-    checkoutUrl,
-  };
+  console.log(`[BagelPay] URL: ${checkoutUrl}`);
+  return { ok: true, checkoutUrl };
 }
 
 /**
- * Creem 支付（保留代码，将来 KYC 通过可以把 PAYMENT_PROVIDER 切回 creem）
+ * Creem - 支持测试模式
  */
-async function createCreemCheckout(ticker, origin) {
+async function createCreemCheckout(ticker, origin, orderId) {
+  // ==================== 测试模式检查 ====================
+  const isTestMode = String(process.env.CREEM_IS_TEST).trim().toLowerCase() === 'true';
+  
+  if (isTestMode) {
+    console.log('[Creem] 🧪 测试模式激活');
+    const mockUrl = `${origin}/?paid=1&ticker=${encodeURIComponent(ticker)}&orderId=${encodeURIComponent(orderId)}`;
+    console.log('[Creem] 返回 mock URL:', mockUrl);
+    return { ok: true, checkoutUrl: mockUrl };
+  }
+
+  // ==================== 生产模式 ====================
+  console.log('[Creem] 🚀 生产模式');
+  
   const apiKey = process.env.CREEM_API_KEY;
   const productId = process.env.CREEM_PRODUCT_ID;
-  const apiBase =
-    process.env.CREEM_API_BASE || 'https://api.creem.io';
+  const apiBase = process.env.CREEM_API_BASE || 'https://api.creem.io';
 
   if (!apiKey || !productId) {
-    console.error('[Creem] Missing CREEM_API_KEY or CREEM_PRODUCT_ID');
+    console.error('[Creem] 错误: 缺少 API Key 或 Product ID');
     return {
       ok: false,
       statusCode: 500,
@@ -106,36 +131,33 @@ async function createCreemCheckout(ticker, origin) {
   }
 
   const configuredSuccess = process.env.CREEM_SUCCESS_URL || null;
-
-  const derivedSuccess =
-    !configuredSuccess && origin.startsWith('https://')
-      ? `${origin}/?paid=1&ticker=${encodeURIComponent(ticker)}`
-      : null;
+  const derivedSuccess = !configuredSuccess && origin.startsWith('https://')
+    ? `${origin}/?paid=1&ticker=${encodeURIComponent(ticker)}&orderId=${encodeURIComponent(orderId)}`
+    : null;
 
   const successUrl = configuredSuccess
-    ? configuredSuccess.replace('{{ticker}}', encodeURIComponent(ticker))
+    ? configuredSuccess
+        .replace('{{ticker}}', encodeURIComponent(ticker))
+        .replace('{{orderId}}', encodeURIComponent(orderId))
     : derivedSuccess;
-
-  const sendMetadata =
-    (process.env.CREEM_SEND_METADATA || 'true').toLowerCase() !== 'false';
-  const sendRequestId =
-    (process.env.CREEM_SEND_REQUEST_ID || 'true').toLowerCase() !== 'false';
 
   const body = {
     product_id: productId,
   };
 
-  if (sendRequestId) {
+  if ((process.env.CREEM_SEND_METADATA || 'true') === 'true') {
+    body.metadata = { ticker, orderId };
+  }
+
+  if ((process.env.CREEM_SEND_REQUEST_ID || 'true') === 'true') {
     body.request_id = `briefingdeck_${ticker}_${Date.now()}`;
   }
-  if (sendMetadata) {
-    body.metadata = { ticker };
-  }
+
   if (successUrl) {
     body.success_url = successUrl;
   }
 
-  console.log('[Creem] Creating checkout with body:', body);
+  console.log('[Creem] 请求体:', JSON.stringify(body, null, 2));
 
   let response;
   try {
@@ -148,7 +170,7 @@ async function createCreemCheckout(ticker, origin) {
       body: JSON.stringify(body),
     });
   } catch (err) {
-    console.error('[Creem] Network error:', err);
+    console.error('[Creem] 网络错误:', err);
     return { ok: false, statusCode: 500, error: 'Creem network error' };
   }
 
@@ -156,7 +178,7 @@ async function createCreemCheckout(ticker, origin) {
   try {
     data = await response.json();
   } catch (err) {
-    console.error('[Creem] Failed to parse JSON:', err);
+    console.error('[Creem] JSON 解析失败:', err);
     return {
       ok: false,
       statusCode: response.status,
@@ -165,17 +187,14 @@ async function createCreemCheckout(ticker, origin) {
   }
 
   const checkoutUrl = data.checkout_url || data.url || null;
-  console.log('[Creem] Response:', data);
+  console.log('[Creem] 响应:', data);
 
   if (!response.ok || !checkoutUrl) {
-    console.error('[Creem] Live API Error:', data);
+    console.error('[Creem] 错误:', data);
     return {
       ok: false,
       statusCode: response.status,
-      error:
-        data.error ||
-        data.message ||
-        `Creem error (status ${response.status})`,
+      error: data.error || data.message || `Creem error (status ${response.status})`,
     };
   }
 

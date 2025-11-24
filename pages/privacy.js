@@ -1,37 +1,44 @@
-export default function Privacy() {
+// pages/privacy.js
+
+export default function PrivacyPolicy() {
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-900 px-6 py-12">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
+    <main className="min-h-screen bg-neutral-100 text-neutral-900 flex flex-col">
+      <header className="w-full border-b border-neutral-200 bg-neutral-100/80">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-md bg-black" />
+            <a href="/" className="text-sm font-medium tracking-tight">
+              BriefingDeck
+            </a>
+          </div>
+        </div>
+      </header>
 
-        <p className="text-neutral-700 text-sm leading-relaxed">
-          BriefingDeck.com (“we”, “our”, or “the service”) collects only the
-          minimal information required to operate our product. This primarily
-          includes the stock ticker you submit and basic technical logs needed
-          to maintain service reliability.
+      <section className="mx-auto max-w-3xl px-6 py-12 md:py-16 flex-1">
+        <h1 className="text-2xl font-semibold mb-4">Privacy Policy</h1>
+        <p className="text-sm text-neutral-600 mb-4">
+          BriefingDeck.com is a personal side project that helps users generate
+          briefing decks based on public company filings.
         </p>
-
-        <p className="text-neutral-700 text-sm leading-relaxed">
-          We do not sell personal data. We do not track users across other
-          websites. Any payment information is processed securely by our payment
-          provider and never touches our servers.
+        <p className="text-sm text-neutral-600 mb-2">
+          We only collect the minimum information necessary to provide the
+          service, such as your email address (for sending deck links or
+          receipts) and the ticker symbols you request.
         </p>
-
-        <p className="text-neutral-700 text-sm leading-relaxed">
-          Deck generation uses third-party AI services. Your input (e.g.,
-          ticker symbols and summary context) may be processed by these model
-          providers for the purpose of generating your deck.
+        <p className="text-sm text-neutral-600 mb-2">
+          Data may be processed by third-party providers such as Creem
+          (payments), DeepSeek and Gamma (content generation). These providers
+          handle your data under their own privacy policies.
         </p>
-
-        <p className="text-neutral-500 text-xs pt-4">
-          This service uses AI APIs, including DeepSeek and Gamma API, to
-          generate briefing materials.
+        <p className="text-sm text-neutral-600 mb-2">
+          No personalized investment profiling is performed. We do not sell your
+          data to third parties.
         </p>
-
-        <p className="text-xs text-neutral-400 pt-8">
-          © {new Date().getFullYear()} BriefingDeck.com
+        <p className="text-sm text-neutral-600 mt-4">
+          If you have any questions, please contact us via the email address
+          listed on the Creem onboarding form.
         </p>
-      </div>
+      </section>
     </main>
   );
 }

@@ -1,92 +1,136 @@
 // pages/api/generate-deck.js
 
+const processedOrders = new Map();
+const ACTIVE_FETCHES = new Set(); // 保持 Promise 引用，防止被 GC
+
 export default async function handler(req, res) {
-  // 1. Only allow POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  // ==================== GET: 查询状态 ====================
+  if (req.method === 'GET') {
+    const { orderId } = req.query;
+    if (!orderId) return res.status(400).json({ ok: false, error: 'orderId required' });
+
+    const result = processedOrders.get(orderId);
+    if (!result) {
+      return res.status(202).json({
+        ok: false,
+        status: 'processing',
+        message: 'Still initializing...',
+      });
+    }
+    return res.status(200).json(result);
   }
 
-  // 2. Read ticker (and optional email) from request body
-  const { ticker, email } = req.body || {};
+  // ==================== POST: 触发生成 ====================
+  if (req.method === 'POST') {
+    const { ticker, email, orderId } = req.body || {};
+    const normalizedTicker = (ticker || '').trim().toUpperCase();
 
-  if (!ticker) {
-    return res.status(400).json({ error: 'Ticker is required' });
-  }
+    console.log('[API POST] 收到请求:', { ticker: normalizedTicker, email, orderId });
 
-  try {
-    // 3. n8n Webhook URL (use Production URL by default)
-    const webhookUrl =
-      process.env.N8N_WEBHOOK_URL ||
-      'https://tianyumvp.app.n8n.cloud/webhook/earnings-deck'; // ✅ 生产 URL
+    if (orderId && processedOrders.has(orderId)) {
+      return res.status(200).json(processedOrders.get(orderId));
+    }
 
-    console.log('[API] incoming request:', { ticker, email });
-    console.log('[API] calling n8n webhook:', webhookUrl);
+    const n8nUrl = process.env.N8N_WEBHOOK_URL;
+    if (!n8nUrl) {
+      return res.status(500).json({ ok: false, error: 'N8N_WEBHOOK_URL not configured' });
+    }
+    const safeEmail = (email || '').trim() || null;
 
-    // 4. Forward ticker (and optional email) to n8n
-    const n8nResponse = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ticker,
-        email,
-      }),
+    // ✅ 标记处理中
+    processedOrders.set(orderId, {
+      ok: false,
+      status: 'processing',
+      message: 'Your deck is being generated (2-4 minutes)',
+      startedAt: Date.now(),
     });
 
-    console.log('[API] n8n status:', n8nResponse.status);
+    // ==================== 关键修复 ====================
+    // 使用 setImmediate 确保响应发送后执行
+    setImmediate(async () => {
+      console.log('[API] 🚀 [setImmediate] 开始触发 n8n:', new Date().toISOString());
+      console.log('[API] n8n URL:', n8nUrl);
+      console.log('[API] Payload:', { ticker: normalizedTicker, email, orderId });
 
-    // 5. Parse n8n JSON response (from "Respond to Webhook" node)
-    let data = null;
-    let rawText = null;
-    try {
-      rawText = await n8nResponse.text();
-      console.log('[API] n8n raw response text:', rawText);
-      data = rawText ? JSON.parse(rawText) : null;
-    } catch (e) {
-      console.error('[API] Failed to parse n8n JSON response:', e);
-    }
+      try {
+        const fetchPromise = fetch(n8nUrl, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'User-Agent': 'BriefingDeck/1.0',
+          },
+          body: JSON.stringify({ 
+            ticker: normalizedTicker, 
+            email: safeEmail, 
+            orderId,
+            timestamp: Date.now(),
+          }),
+          // 不设 timeout，让 n8n 充分运行
+        });
 
-    if (!n8nResponse.ok) {
-      // n8n returned an HTTP error
-      return res.status(500).json({
-        ok: false,
-        error: 'n8n workflow error',
-        status: n8nResponse.status,
-        data,
-        rawText,
-      });
-    }
+        // 保持引用
+        ACTIVE_FETCHES.add(fetchPromise);
 
-    // 6. Validate data from n8n (according to your Respond to Webhook JSON)
-    // e.g. { ok: true, ticker: "...", status: "completed", exportUrl: "...", gammaUrl: "..." }
-    if (!data || data.ok === false) {
-      return res.status(500).json({
-        ok: false,
-        error: data?.error || 'Invalid response from workflow',
-        data,
-      });
-    }
+        const response = await fetchPromise;
+        ACTIVE_FETCHES.delete(fetchPromise);
 
-    // 7. Return clean data to the frontend
-    const deckUrl =
-      data.deckUrl || data.exportUrl || data.gammaUrl || data.pdfUrl || null;
+        console.log('[API] ✅ n8n 回调完成，状态:', response.status);
 
-    const payload = {
-      ok: true,
-      ticker: data.ticker || ticker,
-      status: data.status,
-      exportUrl: data.exportUrl || null,
-      gammaUrl: data.gammaUrl || null,
-      deckUrl,
-      // raw: data, // 如果想调试完整返回，可以临时打开
-    };
+        if (response.ok) {
+          const data = await response.json().catch(() => ({}));
+          const deckUrl = data.deckUrl || data.url || null;
+          
+          if (deckUrl && orderId) {
+            processedOrders.set(orderId, {
+              ok: true,
+              deckUrl,
+              source: 'n8n',
+              status: 'completed',
+              completedAt: Date.now(),
+            });
+            console.log('[API] 🎉 结果已缓存:', orderId, deckUrl);
+          }
+        } else {
+          const errorBody = await response.text();
+          console.error('[API] ❌ n8n 错误:', response.status, errorBody);
+          if (orderId) {
+            processedOrders.set(orderId, {
+              ok: false,
+              status: 'failed',
+              message: `n8n error (${response.status}). Check n8n logs.`,
+              errorBody,
+              completedAt: Date.now(),
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[API] 🔥 n8n 异常:', err.message);
+        if (orderId) {
+          processedOrders.set(orderId, {
+            ok: false,
+            status: 'failed',
+            message: 'n8n request failed',
+            error: err.message,
+            completedAt: Date.now(),
+          });
+        }
+      }
+    });
 
-    console.log('[API] returning to frontend:', payload);
+    // ✅ 立即响应
+    console.log('[API POST] 返回 202，响应已发送');
+    res.status(202).json({
+      ok: false,
+      status: 'processing',
+      message: 'Your deck is being generated (2-4 minutes)',
+      orderId,
+    });
 
-    return res.status(200).json(payload);
-  } catch (err) {
-    console.error('Error calling n8n webhook:', err);
-    return res.status(500).json({ ok: false, error: 'Server error' });
+    // 关键：不要等待 setImmediate，让 Node.js 保持事件循环
+    return;
   }
+
+  return res.status(405).json({ ok: false, error: 'Method not allowed' });
 }

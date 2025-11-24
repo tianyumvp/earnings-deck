@@ -2,8 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body {
+/* 页面背景 & 全局字体 */
+html,
+body {
   padding: 0;
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  background-color: #f6f5f3; /* Notion-ish 背景 */
+  color: #111827;
+}
+
+/* 标题用 Plex，稍微更「投行」一点 */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-plex), var(--font-inter), system-ui, sans-serif;
+}
+
+/* a 链接默认样式淡一点 */
+a {
+  color: inherit;
+  text-decoration: none;
 }

@@ -53,6 +53,11 @@ export default async function handler(req, res) {
       metadata.symbol ||
       null;
 
+    const orderId =
+      metadata.orderId ||
+      metadata.order_id ||
+      null;
+
     // 简单判断一下是不是「支付成功」类事件
     const isPaid =
       status === 'paid' ||
@@ -76,33 +81,21 @@ export default async function handler(req, res) {
         .json({ ok: true, missingTicker: true, ignored: true });
     }
 
-    console.log(
-      `[Creem Webhook] Payment succeeded for ticker "${ticker}".`
-    );
+    console.log(`[Creem Webhook] Payment confirmed for ticker "${ticker}" (orderId: ${orderId})`);
 
-    // 可选：如果你希望「支付成功后自动触发 n8n」，在这里调用
-    if (N8N_WEBHOOK_URL) {
-      // 不等待 n8n 完成，避免阻塞 webhook 响应
-      fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker }),
-      }).catch((err) => {
-        console.error(
-          '[Creem Webhook] Error calling n8n webhook:',
-          err
-        );
-      });
-    } else {
-      console.log(
-        '[Creem Webhook] N8N_WEBHOOK_URL not set, skipping n8n call.'
-      );
-    }
+    // ✅ 修复：不要在这里调用 n8n，避免双重触发
+    console.log('[Creem Webhook] n8n trigger is handled by frontend, webhook only logs.');
 
-    return res.status(200).json({ ok: true });
+    // 可选：这里可以记录到数据库或发送通知，但不触发业务逻辑
+    // await savePaymentRecord({ ticker, orderId, eventType, status });
+
+    return res.status(200).json({ 
+      ok: true, 
+      message: 'Webhook received, n8n trigger skipped (handled by frontend)' 
+    });
   } catch (err) {
     console.error('[Creem Webhook] Unexpected error:', err);
     // 即便出错，也尽量返回 200，避免 Creem 不断重试
-    return res.status(200).json({ ok: false, error: 'Internal error' });
+    return res.status(200).json({ ok: false, error: 'Internal error logged' });
   }
 }

@@ -1,0 +1,25 @@
+// pages/api/status.js
+
+// 必须与 /api/generate-deck.js 共享同一个 Map
+const processedOrders = new Map();
+
+export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  }
+
+  const { orderId } = req.query;
+  
+  if (!orderId) {
+    return res.status(400).json({ ok: false, error: 'orderId is required' });
+  }
+
+  const result = processedOrders.get(orderId);
+
+  if (!result) {
+    return res.status(404).json({ ok: false, error: 'Order not found' });
+  }
+
+  // 返回存储的状态
+  return res.status(200).json(result);
+}

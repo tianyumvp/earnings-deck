@@ -6,39 +6,24 @@ import {
   TrendingUp,
   ArrowRight,
   CheckCircle2,
+  Mail,
+  Clock,
 } from 'lucide-react';
 
 export default function Home() {
+  // ========= 状态管理 =========
   const [ticker, setTicker] = useState('');
-  const [loading, setLoading] = useState(false);      // 调用 /api/pay 的加载
-  const [status, setStatus] = useState(null);         // 生成状态文案
-  const [error, setError] = useState(null);
-  const [paidMessage, setPaidMessage] = useState(null);
-  const [generating, setGenerating] = useState(false); // 调用 /api/generate-deck 的加载
-  const [deckUrl, setDeckUrl] = useState(null);
-  const [generatingDots, setGeneratingDots] = useState('');
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);      // 支付中
+  const [status, setStatus] = useState(null);         // 状态提示
+  const [error, setError] = useState(null);           // 错误提示
+  const [paidMessage, setPaidMessage] = useState(null); // 支付成功提示
+  const [generating, setGenerating] = useState(false);  // 生成中
+  const [deckUrl, setDeckUrl] = useState(null);       // PDF 链接
+  const [generatingDots, setGeneratingDots] = useState(''); // 动画点
+  const [elapsedTime, setElapsedTime] = useState(0);  // 耗时统计
 
-  // ========= 支付成功后自动生成 deck =========
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const url = new URL(window.location.href);
-    const paid = url.searchParams.get('paid');
-    const t = url.searchParams.get('ticker');
-
-    if (paid === '1' && t) {
-      const upper = t.trim().toUpperCase();
-      setTicker(upper);
-      setPaidMessage(
-        `Payment received for ${upper}. Your briefing deck is being generated.`
-      );
-      // 自动触发生成
-      autoGenerateAfterPayment(upper);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 动态生成提示：显示 . .. ... 循环
+  // ========= 动态生成提示动画 =========
   useEffect(() => {
     if (!generating) {
       setGeneratingDots('');
@@ -48,8 +33,7 @@ export default function Home() {
     const frames = ['.', '..', '...'];
     let idx = 0;
     setGeneratingDots(frames[idx]);
-    idx = (idx + 1) % frames.length;
-
+    
     const timer = setInterval(() => {
       setGeneratingDots(frames[idx]);
       idx = (idx + 1) % frames.length;
@@ -58,39 +42,122 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [generating]);
 
-  // 支付成功后调用的自动生成函数
-  const autoGenerateAfterPayment = async (paidTicker) => {
+  // ========= 支付成功后自动轮询 =========
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    const paid = url.searchParams.get('paid');
+    const t = url.searchParams.get('ticker');
+    const orderId = url.searchParams.get('orderId');
+    const storedEmail = localStorage.getItem('userEmail') || '';
+    const userEmail = url.searchParams.get('email') || storedEmail;
+
+    if (paid === '1' && t && orderId) {
+      const upper = t.trim().toUpperCase();
+      setTicker(upper);
+      if (userEmail) setEmail(userEmail);
+      
+      // 清理 URL 参数
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      setPaidMessage(`✅ Payment confirmed for ${upper}. Your deck is being generated...`);
+      autoGenerateAfterPayment(upper, orderId, userEmail);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ========= 轮询函数 =========
+  const startPolling = (orderId) => {
+    setGenerating(true);
+    setStatus('Connecting to AI engine...');
+    setElapsedTime(0);
+    
+    let pollCount = 0;
+    const maxPolls = 30; // 最多轮询 30 次（5 分钟）
+
+    const interval = setInterval(async () => {
+      pollCount++;
+      setElapsedTime(pollCount * 10);
+      setStatus(`Generating your briefing deck... (${pollCount * 10}s elapsed)`);
+      
+      try {
+        const res = await fetch(`/api/generate-deck?orderId=${orderId}`);
+        const data = await res.json();
+
+        if (data.ok && data.deckUrl) {
+          // ✅ 成功！停止轮询
+          clearInterval(interval);
+          setGenerating(false);
+          setStatus(null);
+          setPaidMessage(null);
+          setDeckUrl(data.deckUrl);
+          setStatus('🎉 Your deck is ready!');
+          return;
+        }
+
+        if (pollCount >= maxPolls) {
+          clearInterval(interval);
+          setGenerating(false);
+          setStatus('⏰ Generation is taking longer than expected. Please refresh this page in a moment.');
+        }
+      } catch (err) {
+        console.error('[Polling] Error:', err);
+      }
+    }, 10000); // 每 10 秒轮询一次
+
+    // 清理函数
+    return () => clearInterval(interval);
+  };
+
+  // ========= 生成函数（支付后调用） =========
+  const autoGenerateAfterPayment = async (paidTicker, orderId, userEmail) => {
     setError(null);
     setStatus(null);
     setDeckUrl(null);
     setGenerating(true);
+    let startedPolling = false;
 
     try {
       const res = await fetch('/api/generate-deck', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: paidTicker }),
+        body: JSON.stringify({ 
+          ticker: paidTicker, 
+          orderId,
+          email: userEmail,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
       console.log('[frontend] /api/generate-deck response:', data);
 
+      // 处理异步响应
+      if (res.status === 202) {
+        setStatus(data.message || 'Your deck is being generated...');
+        startPolling(orderId);
+        startedPolling = true;
+        return;
+      }
+
       if (!res.ok || !data.ok || !data.deckUrl) {
-        setError(data.error || 'Deck generation failed. Please contact support.');
+        setError(data.error || 'Deck generation failed. Please contact support@briefingdeck.com');
         return;
       }
 
       setStatus(`Your briefing deck for ${paidTicker} is ready.`);
       setDeckUrl(data.deckUrl);
     } catch (err) {
-      console.error(err);
+      console.error('Generation error:', err);
       setError('Network error while generating the deck. Please try again.');
     } finally {
-      setGenerating(false);
+      if (!startedPolling) {
+        setGenerating(false);
+      }
     }
   };
 
-  // ========= 点击按钮：创建 BagelPay 支付 =========
+  // ========= 支付按钮点击 =========
   const handleGenerate = async (e) => {
     e.preventDefault();
     setError(null);
@@ -103,6 +170,11 @@ export default function Home() {
       return;
     }
 
+    // 保存 email 到 localStorage
+    if (email) {
+      localStorage.setItem('userEmail', email);
+    }
+
     const upper = ticker.trim().toUpperCase();
     setLoading(true);
 
@@ -110,7 +182,7 @@ export default function Home() {
       const res = await fetch('/api/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: upper }),
+        body: JSON.stringify({ ticker: upper, email }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -121,7 +193,7 @@ export default function Home() {
         return;
       }
 
-      // 跳转到 BagelPay 付款页面
+      // 跳转到支付页面
       window.location.href = data.checkoutUrl;
     } catch (err) {
       console.error(err);
@@ -131,6 +203,7 @@ export default function Home() {
     }
   };
 
+  // ========= 渲染 =========
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 text-slate-900">
       {/* 背景动态色块 */}
@@ -141,7 +214,7 @@ export default function Home() {
       </div>
 
       {/* Header */}
-      <header className="relative w-full border-b border-slate-200/60 bg-white/60 backdrop-blur-xl">
+      <header className="relative w-full border-b border-slate-200/60 bg-white/60 backdrop-blur-xl z-10">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -170,7 +243,7 @@ export default function Home() {
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200/50 mb-6">
               <Sparkles className="w-4 h-4 text-purple-600" />
               <span className="text-xs font-medium text-slate-700">
-                Powered by AI
+                Powered by AI & DeepSeek
               </span>
             </div>
 
@@ -200,28 +273,28 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 blur-3xl -z-10"></div>
 
             <div className="rounded-3xl border border-slate-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-slate-200/50 px-8 py-10 md:px-12 md:py-12">
-              {/* 支付成功提示 + 生成中提示 */}
+              {/* 支付成功提示 */}
               {paidMessage && (
-                <div className="mb-4 rounded-2xl border border-emerald-200/60 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-3 flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                  <span className="text-sm text-emerald-800 font-medium">
-                    {paidMessage}
-                    {generating && (
-                      <span className="inline-block w-8" aria-live="polite">
-                        {generatingDots}
-                      </span>
-                    )}
-                  </span>
+                <div className="mb-6 rounded-2xl border border-blue-200/60 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-blue-800 font-medium">
+                        {paidMessage}
+                      </p>
+                      <div className="mt-2 text-xs text-blue-600 flex items-center gap-2">
+                        <Clock className="w-3 h-3" />
+                        Generation typically takes 2-4 minutes
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* 输入区 */}
               <div className="space-y-6">
                 <div>
-                  <label
-                    htmlFor="ticker"
-                    className="mb-3 block text-sm font-semibold text-slate-700"
-                  >
+                  <label htmlFor="ticker" className="mb-3 block text-sm font-semibold text-slate-700">
                     Stock Ticker
                   </label>
                   <div className="flex flex-col gap-4 md:flex-row">
@@ -238,18 +311,20 @@ export default function Home() {
                             handleGenerate(e);
                           }
                         }}
+                        disabled={paidMessage || generating}
                       />
                       <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                     </div>
+                    
                     <button
                       onClick={handleGenerate}
-                      disabled={loading}
+                      disabled={loading || generating || paidMessage}
                       className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-4 text-base font-semibold text-white hover:from-blue-700 hover:to-purple-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-0.5 active:translate-y-0"
                     >
-                      {loading ? (
+                      {loading || generating ? (
                         <>
                           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          Processing
+                          {loading ? 'Processing' : 'Generating...'}
                         </>
                       ) : (
                         <>
@@ -262,6 +337,28 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Email 输入（可选，用于后续邮件通知） */}
+                <div className="mt-2">
+                  <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-600">
+                    Email for delivery (optional)
+                  </label>
+                  <div className="flex gap-3">
+                    <input
+                      id="email"
+                      type="email"
+                      placeholder="you@example.com"
+                      className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={paidMessage || generating}
+                    />
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <Mail className="w-4 h-4" />
+                      <span>PDF link will be sent here</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* 错误 / 状态 / deck 链接 */}
                 {(error || status || deckUrl) && (
                   <div className="space-y-3">
@@ -270,21 +367,34 @@ export default function Home() {
                         {error}
                       </div>
                     )}
+                    
                     {status && (
-                      <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium">
-                        {status}
+                      <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3">
+                        <p className="text-sm text-blue-700 font-medium flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          {status}
+                        </p>
+                        {generating && (
+                          <p className="text-xs text-blue-500 mt-1" aria-live="polite">
+                            Please keep this page open {generatingDots}
+                          </p>
+                        )}
                       </div>
                     )}
+                    
                     {deckUrl && (
-                      <div>
+                      <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+                        <p className="text-sm text-emerald-700 font-medium mb-3">
+                          🎉 Your deck is ready!
+                        </p>
                         <a
                           href={deckUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition shadow-lg shadow-emerald-500/25"
                         >
-                          Open PDF deck
                           <ArrowRight className="w-4 h-4" />
+                          Open PDF Deck
                         </a>
                       </div>
                     )}
@@ -295,30 +405,16 @@ export default function Home() {
               {/* Features */}
               <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  {
-                    icon: '📊',
-                    title: 'Latest Filings',
-                    desc: 'Real earnings & investor data',
-                  },
-                  {
-                    icon: '✨',
-                    title: 'Pro Design',
-                    desc: 'Clean, meeting-ready layouts',
-                  },
-                  {
-                    icon: '⚡',
-                    title: '~60 Seconds',
-                    desc: 'Lightning-fast generation',
-                  },
+                  { icon: '📊', title: 'Latest Filings', desc: 'Real earnings & investor data' },
+                  { icon: '✨', title: 'Pro Design', desc: 'Clean, meeting-ready layouts' },
+                  { icon: '⚡', title: '~2-4 Minutes', desc: 'Lightning-fast generation' },
                 ].map((feature, i) => (
                   <div
                     key={i}
                     className="rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50/50 border border-slate-200/60 p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
                   >
                     <div className="text-3xl mb-2">{feature.icon}</div>
-                    <h3 className="font-semibold text-slate-900 mb-1">
-                      {feature.title}
-                    </h3>
+                    <h3 className="font-semibold text-slate-900 mb-1">{feature.title}</h3>
                     <p className="text-sm text-slate-600">{feature.desc}</p>
                   </div>
                 ))}
@@ -330,7 +426,7 @@ export default function Home() {
                   Want to see what the output looks like?
                 </p>
                 <a
-                  href="/samples/AMD-Q1-2024-Investor-Briefing.pdf"
+                  href="/samples/Tesla-Q3-2025-Earnings-Report.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
@@ -343,9 +439,7 @@ export default function Home() {
               {/* Disclaimer */}
               <div className="mt-8 pt-6 border-t border-slate-200">
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Powered by DeepSeek & Gamma API. BriefingDeck does not provide
-                  investment advice; all content is for informational purposes
-                  only. Always conduct your own research.
+                  Powered by DeepSeek & Gamma API. BriefingDeck does not provide investment advice; all content is for informational purposes only. Always conduct your own research.
                 </p>
               </div>
             </div>
@@ -379,16 +473,9 @@ export default function Home() {
 
       <style jsx>{`
         @keyframes blob {
-          0%,
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
+          0%, 100% { transform: translate(0px, 0px) scale(1); }
+          33% { transform: translate(30px, -50px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
         }
         .animate-blob {
           animation: blob 7s infinite;
