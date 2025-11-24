@@ -159,7 +159,7 @@ export default function Home() {
             </span>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-600">
-            <span className="hidden sm:inline">Institutional-grade AI research decks</span>
+              <span className="hidden sm:inline"></span>
           </div>
         </div>
       </header>
@@ -169,19 +169,12 @@ export default function Home() {
         <section className="mx-auto max-w-5xl px-6 py-16 md:py-20">
           {/* Hero Section */}
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm">
-              <Sparkles className="w-4 h-4 text-slate-700" />
-              <span className="text-xs font-medium text-slate-700">
-                Precision-grade AI, investor-ready outputs
-              </span>
-            </div>
-
             <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-4 text-slate-900">
-              Turn tickers into <span className="text-slate-700">investor decks</span>
+              Turn stock tickers into <span className="text-slate-700">briefing decks</span>
             </h1>
 
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-              Concise, IC-ready decks built from the latest filings. No noise, just signal.
+              Polished company profile decks with current financials and developments sourced from the latest filings.
             </p>
 
             <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-200 bg-amber-50 text-amber-800 text-xs font-medium shadow-sm">
@@ -204,7 +197,7 @@ export default function Home() {
                       </p>
                       <div className="mt-2 text-xs text-blue-600 flex items-center gap-2">
                         <Clock className="w-3 h-3" />
-                        Generation typically takes 2-4 minutes
+                        Generation typically takes ~1 minute
                       </div>
                     </div>
                   </div>
@@ -303,9 +296,9 @@ export default function Home() {
               {/* Features */}
               <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  { icon: '📊', title: 'Latest Filings', desc: 'Real earnings & investor data' },
+                  { icon: '📊', title: 'Latest Filings', desc: 'Per latest financials data' },
                   { icon: '✨', title: 'Pro Design', desc: 'Clean, meeting-ready layouts' },
-                  { icon: '⚡', title: '~2-4 Minutes', desc: 'Lightning-fast generation' },
+                  { icon: '⚡', title: '~1 Minute', desc: 'Lightning-fast generation' },
                 ].map((feature, i) => (
                   <div
                     key={i}
@@ -337,7 +330,7 @@ export default function Home() {
               {/* Disclaimer */}
               <div className="mt-8 pt-6 border-t border-slate-200">
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Powered by DeepSeek & Gamma API. BriefingDeck does not provide investment advice; all content is for informational purposes only. Always conduct your own research.
+                  Powered by LLMs and Gamma API. BriefingDeck does not provide investment advice; all content is for informational purposes only. Always conduct your own research.
                 </p>
               </div>
             </div>
