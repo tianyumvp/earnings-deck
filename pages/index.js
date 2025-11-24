@@ -69,69 +69,12 @@ export default function Home() {
     return () => clearPoll();
   }, []);
 
-  // ========= 轮询函数 =========
+  // ========= 轮询函数（已不需要，保留清理方法） =========
   const clearPoll = () => {
     if (pollRef.current) {
       clearTimeout(pollRef.current);
       pollRef.current = null;
     }
-  };
-
-  const startPolling = (orderId) => {
-    if (!orderId) return;
-    clearPoll();
-    setGenerating(true);
-    setStatus('Connecting to AI engine...');
-    setElapsedTime(0);
-    
-    let pollCount = 0;
-    const maxPolls = 30; // 最多轮询 30 次（5 分钟）
-
-    const poll = async () => {
-      pollCount++;
-      setElapsedTime(pollCount * 10);
-      setStatus(`Generating your briefing deck... (${pollCount * 10}s elapsed)`);
-      
-      try {
-        const res = await fetch(`/api/generate-deck?orderId=${orderId}`);
-        const data = await res.json();
-
-        if (res.ok && data.ok && data.deckUrl) {
-          // ✅ 成功！停止轮询
-          clearPoll();
-          setGenerating(false);
-          setStatus('🎉 Your deck is ready!');
-          setPaidMessage(null);
-          setDeckUrl(data.deckUrl);
-          return;
-        }
-
-        if (data.status === 'failed') {
-          clearPoll();
-          setGenerating(false);
-          setStatus(null);
-          setError(data.message || 'Deck generation failed. Please contact support.');
-          return;
-        }
-
-    if (pollCount >= maxPolls) {
-      clearPoll();
-      setGenerating(false);
-      setStatus('Generation is taking longer than expected. Please reach out to support with your ticker.');
-      return;
-    }
-
-        // 继续轮询
-        pollRef.current = setTimeout(poll, 10000);
-      } catch (err) {
-        console.error('[Polling] Error:', err);
-        clearPoll();
-        setGenerating(false);
-        setStatus('Network error while checking status.');
-      }
-    };
-
-    poll();
   };
 
   // ========= 生成函数（支付后调用） =========
@@ -140,29 +83,11 @@ export default function Home() {
     setStatus(null);
     setDeckUrl(null);
     setGenerating(true);
-    let startedPolling = false;
     const currentOrderId =
       incomingOrderId || orderId || `deck_${paidTicker}_${Date.now()}`;
     setOrderId(currentOrderId);
 
     try {
-      // 先查状态，避免重复触发
-      const statusRes = await fetch(`/api/generate-deck?orderId=${currentOrderId}`);
-      const statusData = await statusRes.json().catch(() => ({}));
-      if (statusRes.ok && statusData.ok && statusData.deckUrl) {
-        setStatus(`Your briefing deck for ${paidTicker} is ready.`);
-        setDeckUrl(statusData.deckUrl);
-        setGenerating(false);
-        return;
-      }
-      if (statusRes.status === 202 || statusData.status === 'processing') {
-        setStatus(statusData.message || 'Your deck is being generated...');
-        startPolling(currentOrderId);
-        startedPolling = true;
-        return;
-      }
-
-      // 状态不存在或失败，再触发一次生成
       const res = await fetch('/api/generate-deck', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,16 +100,6 @@ export default function Home() {
       const data = await res.json().catch(() => ({}));
       console.log('[frontend] /api/generate-deck response:', data);
 
-      // 处理异步响应
-      if (res.status === 202 || data.status === 'processing') {
-        setStatus(data.message || 'Your deck is being generated...');
-        const pollId = data.orderId || currentOrderId;
-        setOrderId(pollId);
-        startPolling(pollId);
-        startedPolling = true;
-        return;
-      }
-
       if (res.ok && data.ok && data.deckUrl) {
         setStatus(`Your briefing deck for ${paidTicker} is ready.`);
         setDeckUrl(data.deckUrl);
@@ -195,9 +110,7 @@ export default function Home() {
       console.error('Generation error:', err);
       setError('Network error while generating the deck. Please try again.');
     } finally {
-      if (!startedPolling) {
-        setGenerating(false);
-      }
+      setGenerating(false);
     }
   };
 
