@@ -1,12 +1,11 @@
 // pages/index.js
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Sparkles,
   Zap,
   TrendingUp,
   ArrowRight,
   CheckCircle2,
-  Mail,
   Clock,
 } from 'lucide-react';
 
@@ -20,9 +19,7 @@ export default function Home() {
   const [generating, setGenerating] = useState(false);  // 生成中
   const [deckUrl, setDeckUrl] = useState(null);       // PDF 链接
   const [generatingDots, setGeneratingDots] = useState(''); // 动画点
-  const [elapsedTime, setElapsedTime] = useState(0);  // 耗时统计
   const [orderId, setOrderId] = useState(null);       // 订单 ID
-  const pollRef = useRef(null);
 
   // ========= 动态生成提示动画 =========
   useEffect(() => {
@@ -64,18 +61,10 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 组件卸载时清理轮询
+  // 组件卸载时清理轮询（已无轮询，保留空函数）
   useEffect(() => {
-    return () => clearPoll();
+    return () => {};
   }, []);
-
-  // ========= 轮询函数（已不需要，保留清理方法） =========
-  const clearPoll = () => {
-    if (pollRef.current) {
-      clearTimeout(pollRef.current);
-      pollRef.current = null;
-    }
-  };
 
   // ========= 生成函数（支付后调用） =========
   const autoGenerateAfterPayment = async (paidTicker, incomingOrderId) => {
@@ -110,7 +99,7 @@ export default function Home() {
       console.error('Generation error:', err);
       setError('Network error while generating the deck. Please try again.');
     } finally {
-      setGenerating(false);
+    setGenerating(false);
     }
   };
 
@@ -157,64 +146,45 @@ export default function Home() {
 
   // ========= 渲染 =========
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 text-slate-900">
-      {/* 背景动态色块 */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
-        <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-300/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
-      </div>
-
+    <main className="min-h-screen bg-[#f7f6f3] text-slate-900">
       {/* Header */}
-      <header className="relative w-full border-b border-slate-200/60 bg-white/60 backdrop-blur-xl z-10">
+      <header className="relative w-full border-b border-slate-200/70 bg-white/80 backdrop-blur-md z-10">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                <TrendingUp className="w-4 h-4 text-white" />
-              </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+            <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-semibold">
+              <TrendingUp className="w-4 h-4" />
             </div>
-            <span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <span className="text-lg font-semibold text-slate-900">
               BriefingDeck
             </span>
           </div>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-slate-600 hidden sm:inline">
-              AI-Powered Analysis
-            </span>
+          <div className="flex items-center gap-3 text-sm text-slate-600">
+            <span className="hidden sm:inline">Institutional-grade AI research decks</span>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <div className="relative flex-1">
-        <section className="mx-auto max-w-5xl px-6 py-16 md:py-24">
+        <section className="mx-auto max-w-5xl px-6 py-16 md:py-20">
           {/* Hero Section */}
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200/50 mb-6">
-              <Sparkles className="w-4 h-4 text-purple-600" />
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm">
+              <Sparkles className="w-4 h-4 text-slate-700" />
               <span className="text-xs font-medium text-slate-700">
-                Powered by AI & DeepSeek
+                Precision-grade AI, investor-ready outputs
               </span>
             </div>
 
-            <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
-              <span className="bg-gradient-to-r from-slate-900 via-blue-800 to-purple-900 bg-clip-text text-transparent">
-                Turn tickers into
-              </span>
-              <br />
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                investor decks
-              </span>
+            <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-4 text-slate-900">
+              Turn tickers into <span className="text-slate-700">investor decks</span>
             </h1>
 
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-              AI-powered briefing decks from the latest public filings.
-              Professional, fast, and ready for IC meetings.
+              Concise, IC-ready decks built from the latest filings. No noise, just signal.
             </p>
 
-            <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 text-xs font-medium shadow-sm">
+            <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-200 bg-amber-50 text-amber-800 text-xs font-medium shadow-sm">
               <span className="uppercase tracking-wide">Beta</span>
               <span>We are currently in beta.</span>
             </div>
@@ -222,9 +192,7 @@ export default function Home() {
 
           {/* Main Card */}
           <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 blur-3xl -z-10"></div>
-
-            <div className="rounded-3xl border border-slate-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-slate-200/50 px-8 py-10 md:px-12 md:py-12">
+            <div className="rounded-3xl border border-slate-200 bg-white shadow-xl px-8 py-10 md:px-12 md:py-12">
               {/* 支付成功提示 */}
               {paidMessage && (
                 <div className="mb-6 rounded-2xl border border-blue-200/60 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-4">
@@ -306,7 +274,7 @@ export default function Home() {
                         </p>
                         {generating && (
                           <p className="text-xs text-blue-500 mt-1" aria-live="polite">
-                            Please keep this page open {generatingDots}
+                            We’ll drop your PDF link here shortly {generatingDots}
                           </p>
                         )}
                       </div>

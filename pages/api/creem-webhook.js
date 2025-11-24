@@ -82,23 +82,11 @@ export default async function handler(req, res) {
     }
 
     console.log(`[Creem Webhook] Payment confirmed for ticker "${ticker}" (orderId: ${orderId})`);
-
-    // ✅ 直接在 webhook 中触发 n8n，避免依赖前端回跳
-    if (N8N_WEBHOOK_URL) {
-      fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker, orderId, source: 'creem_webhook' }),
-      }).catch((err) => {
-        console.error('[Creem Webhook] Error calling n8n webhook:', err);
-      });
-    } else {
-      console.warn('[Creem Webhook] N8N_WEBHOOK_URL not set, n8n not triggered.');
-    }
+    console.log('[Creem Webhook] Skipping n8n trigger to avoid double runs (frontend handles generation).');
 
     return res.status(200).json({
       ok: true,
-      message: 'Webhook received and n8n triggered',
+      message: 'Webhook received (generation handled by frontend)',
     });
   } catch (err) {
     console.error('[Creem Webhook] Unexpected error:', err);
