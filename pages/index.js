@@ -13,7 +13,6 @@ import {
 export default function Home() {
   // ========= 状态管理 =========
   const [ticker, setTicker] = useState('');
-  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);      // 支付中
   const [status, setStatus] = useState(null);         // 状态提示
   const [error, setError] = useState(null);           // 错误提示
@@ -52,19 +51,15 @@ export default function Home() {
     const paid = url.searchParams.get('paid');
     const t = url.searchParams.get('ticker');
     const orderId = url.searchParams.get('orderId');
-    const storedEmail = localStorage.getItem('userEmail') || '';
-    const userEmail = url.searchParams.get('email') || storedEmail;
 
     if (paid === '1' && t) {
       const upper = t.trim().toUpperCase();
       setTicker(upper);
-      if (userEmail) setEmail(userEmail);
-      
       // 清理 URL 参数
       window.history.replaceState({}, document.title, window.location.pathname);
       
       setPaidMessage(`✅ Payment confirmed for ${upper}. Your deck is being generated...`);
-      autoGenerateAfterPayment(upper, orderId, userEmail);
+      autoGenerateAfterPayment(upper, orderId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -119,12 +114,12 @@ export default function Home() {
           return;
         }
 
-        if (pollCount >= maxPolls) {
-          clearPoll();
-          setGenerating(false);
-          setStatus('⏰ Generation is taking longer than expected. Please refresh this page in a moment.');
-          return;
-        }
+    if (pollCount >= maxPolls) {
+      clearPoll();
+      setGenerating(false);
+      setStatus('Generation is taking longer than expected. Please reach out to support with your ticker.');
+      return;
+    }
 
         // 继续轮询
         pollRef.current = setTimeout(poll, 10000);
@@ -140,7 +135,7 @@ export default function Home() {
   };
 
   // ========= 生成函数（支付后调用） =========
-  const autoGenerateAfterPayment = async (paidTicker, incomingOrderId, userEmail) => {
+  const autoGenerateAfterPayment = async (paidTicker, incomingOrderId) => {
     setError(null);
     setStatus(null);
     setDeckUrl(null);
@@ -174,7 +169,6 @@ export default function Home() {
         body: JSON.stringify({ 
           ticker: paidTicker, 
           orderId: currentOrderId,
-          email: userEmail,
         }),
       });
 
@@ -220,11 +214,6 @@ export default function Home() {
       return;
     }
 
-    // 保存 email 到 localStorage
-    if (email) {
-      localStorage.setItem('userEmail', email);
-    }
-
     const upper = ticker.trim().toUpperCase();
     setLoading(true);
 
@@ -232,7 +221,7 @@ export default function Home() {
       const res = await fetch('/api/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: upper, email }),
+        body: JSON.stringify({ ticker: upper }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -384,28 +373,6 @@ export default function Home() {
                         </>
                       )}
                     </button>
-                  </div>
-                </div>
-
-                {/* Email 输入（可选，用于后续邮件通知） */}
-                <div className="mt-2">
-                  <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-600">
-                    Email for delivery (optional)
-                  </label>
-                  <div className="flex gap-3">
-                    <input
-                      id="email"
-                      type="email"
-                      placeholder="you@example.com"
-                      className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={paidMessage || generating}
-                    />
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <Mail className="w-4 h-4" />
-                      <span>PDF link will be sent here</span>
-                    </div>
                   </div>
                 </div>
 
