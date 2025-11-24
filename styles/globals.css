@@ -2,13 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Google Fonts: Inter for body, IBM Plex Sans for headings */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
 /* 页面背景 & 全局字体 */
 html,
 body {
   padding: 0;
   margin: 0;
-  font-family: var(--font-inter), system-ui, -apple-system,
-    BlinkMacSystemFont, sans-serif;
+  font-family: 'Inter', 'Helvetica Neue', 'SF Pro Display', -apple-system,
+    BlinkMacSystemFont, system-ui, sans-serif;
   background-color: #f6f5f3; /* Notion-ish 背景 */
   color: #111827;
 }
@@ -18,7 +21,8 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: var(--font-plex), var(--font-inter), system-ui, sans-serif;
+  font-family: 'IBM Plex Sans', 'Inter', 'Helvetica Neue', 'SF Pro Display',
+    -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
 
 /* a 链接默认样式淡一点 */

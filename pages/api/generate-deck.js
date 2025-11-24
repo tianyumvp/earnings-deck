@@ -1,6 +1,12 @@
 // pages/api/generate-deck.js
 
-const processedOrders = new Map();
+import {
+  generateOrderId,
+  getOrderState,
+  hasOrder,
+  setOrderState,
+} from '../../lib/stateStore';
+
 const ACTIVE_FETCHES = new Set(); // 保持 Promise 引用，防止被 GC
 
 export default async function handler(req, res) {
@@ -11,7 +17,7 @@ export default async function handler(req, res) {
     const { orderId } = req.query;
     if (!orderId) return res.status(400).json({ ok: false, error: 'orderId required' });
 
-    const result = processedOrders.get(orderId);
+    const result = getOrderState(orderId);
     if (!result) {
       return res.status(202).json({
         ok: false,
@@ -24,13 +30,18 @@ export default async function handler(req, res) {
 
   // ==================== POST: 触发生成 ====================
   if (req.method === 'POST') {
-    const { ticker, email, orderId } = req.body || {};
+    const { ticker, email } = req.body || {};
+    let { orderId } = req.body || {};
     const normalizedTicker = (ticker || '').trim().toUpperCase();
 
     console.log('[API POST] 收到请求:', { ticker: normalizedTicker, email, orderId });
 
-    if (orderId && processedOrders.has(orderId)) {
-      return res.status(200).json(processedOrders.get(orderId));
+    if (!orderId) {
+      orderId = generateOrderId(normalizedTicker || 'DECK');
+    }
+
+    if (orderId && hasOrder(orderId)) {
+      return res.status(200).json(getOrderState(orderId));
     }
 
     const n8nUrl = process.env.N8N_WEBHOOK_URL;
@@ -40,11 +51,12 @@ export default async function handler(req, res) {
     const safeEmail = (email || '').trim() || null;
 
     // ✅ 标记处理中
-    processedOrders.set(orderId, {
+    setOrderState(orderId, {
       ok: false,
       status: 'processing',
       message: 'Your deck is being generated (2-4 minutes)',
       startedAt: Date.now(),
+      ticker: normalizedTicker,
     });
 
     // ==================== 关键修复 ====================
@@ -80,15 +92,17 @@ export default async function handler(req, res) {
 
         if (response.ok) {
           const data = await response.json().catch(() => ({}));
-          const deckUrl = data.deckUrl || data.url || null;
+          const deckUrl = data.deckUrl || data.url || data.exportUrl || data.gammaUrl || null;
           
           if (deckUrl && orderId) {
-            processedOrders.set(orderId, {
+            setOrderState(orderId, {
               ok: true,
               deckUrl,
               source: 'n8n',
               status: 'completed',
               completedAt: Date.now(),
+              ticker: normalizedTicker,
+              raw: data,
             });
             console.log('[API] 🎉 结果已缓存:', orderId, deckUrl);
           }
@@ -96,24 +110,26 @@ export default async function handler(req, res) {
           const errorBody = await response.text();
           console.error('[API] ❌ n8n 错误:', response.status, errorBody);
           if (orderId) {
-            processedOrders.set(orderId, {
+            setOrderState(orderId, {
               ok: false,
               status: 'failed',
               message: `n8n error (${response.status}). Check n8n logs.`,
               errorBody,
               completedAt: Date.now(),
+              ticker: normalizedTicker,
             });
           }
         }
       } catch (err) {
         console.error('[API] 🔥 n8n 异常:', err.message);
         if (orderId) {
-          processedOrders.set(orderId, {
+          setOrderState(orderId, {
             ok: false,
             status: 'failed',
             message: 'n8n request failed',
             error: err.message,
             completedAt: Date.now(),
+            ticker: normalizedTicker,
           });
         }
       }
@@ -122,10 +138,11 @@ export default async function handler(req, res) {
     // ✅ 立即响应
     console.log('[API POST] 返回 202，响应已发送');
     res.status(202).json({
-      ok: false,
+      ok: true,
       status: 'processing',
       message: 'Your deck is being generated (2-4 minutes)',
       orderId,
+      ticker: normalizedTicker,
     });
 
     // 关键：不要等待 setImmediate，让 Node.js 保持事件循环

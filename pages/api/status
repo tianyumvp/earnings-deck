@@ -1,7 +1,5 @@
 // pages/api/status.js
-
-// 必须与 /api/generate-deck.js 共享同一个 Map
-const processedOrders = new Map();
+import { getOrderState } from '../../lib/stateStore';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -14,7 +12,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, error: 'orderId is required' });
   }
 
-  const result = processedOrders.get(orderId);
+  const result = getOrderState(orderId);
 
   if (!result) {
     return res.status(404).json({ ok: false, error: 'Order not found' });

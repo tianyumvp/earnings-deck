@@ -1,5 +1,5 @@
 // pages/index.js
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Sparkles,
   Zap,
@@ -22,6 +22,8 @@ export default function Home() {
   const [deckUrl, setDeckUrl] = useState(null);       // PDF 链接
   const [generatingDots, setGeneratingDots] = useState(''); // 动画点
   const [elapsedTime, setElapsedTime] = useState(0);  // 耗时统计
+  const [orderId, setOrderId] = useState(null);       // 订单 ID
+  const pollRef = useRef(null);
 
   // ========= 动态生成提示动画 =========
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function Home() {
     const storedEmail = localStorage.getItem('userEmail') || '';
     const userEmail = url.searchParams.get('email') || storedEmail;
 
-    if (paid === '1' && t && orderId) {
+    if (paid === '1' && t) {
       const upper = t.trim().toUpperCase();
       setTicker(upper);
       if (userEmail) setEmail(userEmail);
@@ -67,8 +69,22 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 组件卸载时清理轮询
+  useEffect(() => {
+    return () => clearPoll();
+  }, []);
+
   // ========= 轮询函数 =========
+  const clearPoll = () => {
+    if (pollRef.current) {
+      clearTimeout(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
   const startPolling = (orderId) => {
+    if (!orderId) return;
+    clearPoll();
     setGenerating(true);
     setStatus('Connecting to AI engine...');
     setElapsedTime(0);
@@ -76,7 +92,7 @@ export default function Home() {
     let pollCount = 0;
     const maxPolls = 30; // 最多轮询 30 次（5 分钟）
 
-    const interval = setInterval(async () => {
+    const poll = async () => {
       pollCount++;
       setElapsedTime(pollCount * 10);
       setStatus(`Generating your briefing deck... (${pollCount * 10}s elapsed)`);
@@ -85,46 +101,79 @@ export default function Home() {
         const res = await fetch(`/api/generate-deck?orderId=${orderId}`);
         const data = await res.json();
 
-        if (data.ok && data.deckUrl) {
+        if (res.ok && data.ok && data.deckUrl) {
           // ✅ 成功！停止轮询
-          clearInterval(interval);
+          clearPoll();
           setGenerating(false);
-          setStatus(null);
+          setStatus('🎉 Your deck is ready!');
           setPaidMessage(null);
           setDeckUrl(data.deckUrl);
-          setStatus('🎉 Your deck is ready!');
+          return;
+        }
+
+        if (data.status === 'failed') {
+          clearPoll();
+          setGenerating(false);
+          setStatus(null);
+          setError(data.message || 'Deck generation failed. Please contact support.');
           return;
         }
 
         if (pollCount >= maxPolls) {
-          clearInterval(interval);
+          clearPoll();
           setGenerating(false);
           setStatus('⏰ Generation is taking longer than expected. Please refresh this page in a moment.');
+          return;
         }
+
+        // 继续轮询
+        pollRef.current = setTimeout(poll, 10000);
       } catch (err) {
         console.error('[Polling] Error:', err);
+        clearPoll();
+        setGenerating(false);
+        setStatus('Network error while checking status.');
       }
-    }, 10000); // 每 10 秒轮询一次
+    };
 
-    // 清理函数
-    return () => clearInterval(interval);
+    poll();
   };
 
   // ========= 生成函数（支付后调用） =========
-  const autoGenerateAfterPayment = async (paidTicker, orderId, userEmail) => {
+  const autoGenerateAfterPayment = async (paidTicker, incomingOrderId, userEmail) => {
     setError(null);
     setStatus(null);
     setDeckUrl(null);
     setGenerating(true);
     let startedPolling = false;
+    const currentOrderId =
+      incomingOrderId || orderId || `deck_${paidTicker}_${Date.now()}`;
+    setOrderId(currentOrderId);
 
     try {
+      // 先查状态，避免重复触发
+      const statusRes = await fetch(`/api/generate-deck?orderId=${currentOrderId}`);
+      const statusData = await statusRes.json().catch(() => ({}));
+      if (statusRes.ok && statusData.ok && statusData.deckUrl) {
+        setStatus(`Your briefing deck for ${paidTicker} is ready.`);
+        setDeckUrl(statusData.deckUrl);
+        setGenerating(false);
+        return;
+      }
+      if (statusRes.status === 202 || statusData.status === 'processing') {
+        setStatus(statusData.message || 'Your deck is being generated...');
+        startPolling(currentOrderId);
+        startedPolling = true;
+        return;
+      }
+
+      // 状态不存在或失败，再触发一次生成
       const res = await fetch('/api/generate-deck', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           ticker: paidTicker, 
-          orderId,
+          orderId: currentOrderId,
           email: userEmail,
         }),
       });
@@ -133,20 +182,21 @@ export default function Home() {
       console.log('[frontend] /api/generate-deck response:', data);
 
       // 处理异步响应
-      if (res.status === 202) {
+      if (res.status === 202 || data.status === 'processing') {
         setStatus(data.message || 'Your deck is being generated...');
-        startPolling(orderId);
+        const pollId = data.orderId || currentOrderId;
+        setOrderId(pollId);
+        startPolling(pollId);
         startedPolling = true;
         return;
       }
 
-      if (!res.ok || !data.ok || !data.deckUrl) {
+      if (res.ok && data.ok && data.deckUrl) {
+        setStatus(`Your briefing deck for ${paidTicker} is ready.`);
+        setDeckUrl(data.deckUrl);
+      } else {
         setError(data.error || 'Deck generation failed. Please contact support@briefingdeck.com');
-        return;
       }
-
-      setStatus(`Your briefing deck for ${paidTicker} is ready.`);
-      setDeckUrl(data.deckUrl);
     } catch (err) {
       console.error('Generation error:', err);
       setError('Network error while generating the deck. Please try again.');
