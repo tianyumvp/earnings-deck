@@ -91,8 +91,16 @@ export default async function handler(req, res) {
         console.log('[API] ✅ n8n 回调完成，状态:', response.status);
 
         if (response.ok) {
-          const data = await response.json().catch(() => ({}));
-          const deckUrl = data.deckUrl || data.url || data.exportUrl || data.gammaUrl || null;
+          let data = await response.json().catch(() => ({}));
+          // 兼容数组返回 [{...}]
+          if (Array.isArray(data)) data = data[0] || {};
+
+          const deckUrl =
+            data.deckUrl ||
+            data.url ||
+            data.exportUrl ||
+            data.gammaUrl ||
+            null;
           
           if (deckUrl && orderId) {
             setOrderState(orderId, {
