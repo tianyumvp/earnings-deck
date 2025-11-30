@@ -7,6 +7,9 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  FileText,
+  Presentation,
+  Timer,
 } from 'lucide-react';
 
 export default function Home() {

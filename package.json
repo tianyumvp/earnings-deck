@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@vercel/analytics": "^1.5.0",
     "lucide-react": "^0.554.0",
     "n8n-nodes-kimi": "^0.1.5",
     "next": "14",
