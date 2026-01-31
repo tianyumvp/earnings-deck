@@ -1,32 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Google Fonts: Inter for body, IBM Plex Sans for headings */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
-
-/* 页面背景 & 全局字体 */
+/* Anthropic-inspired Design System */
 html,
 body {
   padding: 0;
   margin: 0;
-  font-family: 'Inter', 'Helvetica Neue', 'SF Pro Display', -apple-system,
-    BlinkMacSystemFont, system-ui, sans-serif;
-  background-color: #f6f5f3; /* Notion-ish 背景 */
-  color: #111827;
+  font-family: 'Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', sans-serif;
+  background-color: #faf8f5;
+  color: #1f1f1f;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* 标题用 Plex，稍微更「投行」一点 */
-h1,
-h2,
-h3,
-h4 {
-  font-family: 'IBM Plex Sans', 'Inter', 'Helvetica Neue', 'SF Pro Display',
-    -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
 }
 
-/* a 链接默认样式淡一点 */
+/* Selection color - Anthropic terracotta tint */
+::selection {
+  background-color: rgba(217, 119, 87, 0.2);
+  color: #1f1f1f;
+}
+
+/* Typography refinements */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #1f1f1f;
+}
+
+h1 {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+/* Link styles */
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* Focus styles for accessibility */
+*:focus-visible {
+  outline: 2px solid #d97757;
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar - subtle */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f0e8;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4cfc7;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8c4b0;
 }
