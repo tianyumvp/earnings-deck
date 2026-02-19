@@ -135,6 +135,9 @@ export default function Home() {
     }
   };
 
+  // 测试模式标志（从环境变量读取）
+  const isTestMode = process.env.NEXT_PUBLIC_TEST_MODE === 'true';
+
   // ========= 支付按钮点击 =========
   const handleGenerate = async (e) => {
     e.preventDefault();
@@ -149,6 +152,14 @@ export default function Home() {
     }
 
     const upper = ticker.trim().toUpperCase();
+    
+    // 测试模式：跳过支付直接生成
+    if (isTestMode) {
+      console.log('[TEST MODE] Skipping payment, generating deck directly...');
+      autoGenerateAfterPayment(upper, `test_${upper}_${Date.now()}`);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -347,6 +358,12 @@ export default function Home() {
                           <>
                             <div className="w-5 h-5 border-2 border-cream-50/30 border-t-cream-50 rounded-full animate-spin"></div>
                             {loading ? 'Processing' : 'Generating'}
+                          </>
+                        ) : isTestMode ? (
+                          <>
+                            <Zap className="w-5 h-5" />
+                            Test Generate (Free)
+                            <ArrowRight className="w-5 h-5" />
                           </>
                         ) : (
                           <>
