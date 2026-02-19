@@ -89,20 +89,62 @@ async function generateGammaDeck(ticker, narrative) {
   }
 
   // Step 1: 创建 generation
+  const requestBody = {
+    inputText: narrative,
+    textMode: 'generate',
+    format: 'presentation',
+    themeId: '',
+    numCards: 10,
+    cardSplit: 'auto',
+    additionalInstructions: '',
+    folderIds: [],
+    exportAs: 'pdf',
+    textOptions: {
+      amount: 'detailed',
+      tone: 'professional',
+      audience: 'general',
+      language: 'en',
+    },
+    imageOptions: {
+      source: 'aiGenerated',
+      model: 'imagen-4-pro',
+      style: 'modern',
+    },
+    cardOptions: {
+      dimensions: '16x9',
+      headerFooter: {
+        topRight: {
+          type: 'image',
+          source: 'themeLogo',
+          size: 'sm',
+        },
+        bottomRight: {
+          type: 'cardNumber',
+        },
+        hideFromFirstCard: true,
+        hideFromLastCard: false,
+      },
+    },
+    sharingOptions: {
+      workspaceAccess: 'view',
+      externalAccess: 'noAccess',
+      emailOptions: {
+        recipients: ['email@example.com'],
+        access: 'comment',
+      },
+    },
+  };
+
+  console.log('[Gamma] Request body:', JSON.stringify(requestBody, null, 2));
+
   const createResponse = await fetch('https://public-api.gamma.app/v1.0/generations', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       'X-API-KEY': gammaApiKey,
     },
-    body: JSON.stringify({
-      input: {
-        text: narrative,
-      },
-      outputType: 'presentation',
-      theme: 'professional',
-      title: `${ticker} - Analyst Briefing`,
-    }),
+    body: JSON.stringify(requestBody),
     signal: AbortSignal.timeout(30000),
   });
 
@@ -112,6 +154,8 @@ async function generateGammaDeck(ticker, narrative) {
   }
 
   const createData = await createResponse.json();
+  console.log('[Gamma] Create response:', JSON.stringify(createData, null, 2));
+  
   const generationId = createData.id || createData.generationId;
 
   if (!generationId) {
@@ -126,6 +170,7 @@ async function generateGammaDeck(ticker, narrative) {
 
     const statusResponse = await fetch(`https://public-api.gamma.app/v1.0/generations/${generationId}`, {
       headers: {
+        'Accept': 'application/json',
         'X-API-KEY': gammaApiKey,
       },
     });
@@ -136,15 +181,15 @@ async function generateGammaDeck(ticker, narrative) {
     }
 
     const statusData = await statusResponse.json();
-    console.log(`[Gamma] Status check ${attempt}:`, statusData.status || statusData.state);
+    console.log(`[Gamma] Status check ${attempt}:`, JSON.stringify(statusData, null, 2));
 
     const status = statusData.status || statusData.state;
     
     if (status === 'completed' || status === 'done') {
       return {
-        deckUrl: statusData.url || statusData.shareUrl || statusData.output?.url,
-        exportUrl: statusData.exportUrl || statusData.output?.exportUrl || null,
-        gammaUrl: statusData.url || statusData.output?.url || null,
+        deckUrl: statusData.url || statusData.shareUrl || statusData.output?.url || statusData.pdfUrl,
+        exportUrl: statusData.exportUrl || statusData.output?.exportUrl || statusData.pdfUrl || null,
+        gammaUrl: statusData.url || statusData.shareUrl || null,
         generationId,
       };
     }
