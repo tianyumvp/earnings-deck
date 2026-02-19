@@ -88,17 +88,20 @@ async function generateGammaDeck(ticker, narrative) {
     throw new Error('GAMMA_API_KEY not configured');
   }
 
-  // Step 1: 创建 presentation
-  const createResponse = await fetch('https://api.gamma.app/v1/presentations', {
+  // Step 1: 创建 generation
+  const createResponse = await fetch('https://public-api.gamma.app/v1.0/generations', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${gammaApiKey}`,
+      'X-API-KEY': gammaApiKey,
     },
     body: JSON.stringify({
+      input: {
+        text: narrative,
+      },
+      outputType: 'presentation',
+      theme: 'professional',
       title: `${ticker} - Analyst Briefing`,
-      content: narrative,
-      theme: 'professional', // 或从环境变量配置
     }),
     signal: AbortSignal.timeout(30000),
   });
@@ -109,21 +112,21 @@ async function generateGammaDeck(ticker, narrative) {
   }
 
   const createData = await createResponse.json();
-  const presentationId = createData.id;
+  const generationId = createData.id || createData.generationId;
 
-  if (!presentationId) {
-    throw new Error('Gamma did not return presentation ID');
+  if (!generationId) {
+    throw new Error('Gamma did not return generation ID: ' + JSON.stringify(createData));
   }
 
-  console.log(`[Gamma] Presentation created: ${presentationId}`);
+  console.log(`[Gamma] Generation created: ${generationId}`);
 
   // Step 2: 轮询检查完成状态
   for (let attempt = 1; attempt <= GAMMA_MAX_POLL_ATTEMPTS; attempt++) {
     await new Promise(resolve => setTimeout(resolve, GAMMA_POLL_INTERVAL));
 
-    const statusResponse = await fetch(`https://api.gamma.app/v1/presentations/${presentationId}`, {
+    const statusResponse = await fetch(`https://public-api.gamma.app/v1.0/generations/${generationId}`, {
       headers: {
-        'Authorization': `Bearer ${gammaApiKey}`,
+        'X-API-KEY': gammaApiKey,
       },
     });
 
@@ -133,23 +136,25 @@ async function generateGammaDeck(ticker, narrative) {
     }
 
     const statusData = await statusResponse.json();
-    console.log(`[Gamma] Status check ${attempt}: ${statusData.status}`);
+    console.log(`[Gamma] Status check ${attempt}:`, statusData.status || statusData.state);
 
-    if (statusData.status === 'completed') {
+    const status = statusData.status || statusData.state;
+    
+    if (status === 'completed' || status === 'done') {
       return {
-        deckUrl: statusData.url || statusData.shareUrl,
-        exportUrl: statusData.exportUrl || null,
-        gammaUrl: statusData.url || null,
-        presentationId,
+        deckUrl: statusData.url || statusData.shareUrl || statusData.output?.url,
+        exportUrl: statusData.exportUrl || statusData.output?.exportUrl || null,
+        gammaUrl: statusData.url || statusData.output?.url || null,
+        generationId,
       };
     }
 
-    if (statusData.status === 'failed') {
-      throw new Error('Gamma presentation generation failed');
+    if (status === 'failed' || status === 'error') {
+      throw new Error('Gamma generation failed: ' + (statusData.error || statusData.message || 'Unknown error'));
     }
   }
 
-  throw new Error('Gamma presentation generation timeout');
+  throw new Error('Gamma generation timeout');
 }
 
 // 主 Handler
