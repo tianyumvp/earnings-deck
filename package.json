@@ -8,12 +8,18 @@
     "start": "next start"
   },
   "dependencies": {
+    "@auth/pg-adapter": "^1.11.1",
+    "@neondatabase/serverless": "^1.0.2",
     "@vercel/analytics": "^1.5.0",
+    "@vercel/postgres": "^0.10.0",
+    "dotenv": "^17.3.1",
     "lucide-react": "^0.554.0",
     "n8n-nodes-kimi": "^0.1.5",
     "next": "14",
+    "next-auth": "^4.24.13",
     "react": "18",
-    "react-dom": "18"
+    "react-dom": "18",
+    "resend": "^6.9.2"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.22",
